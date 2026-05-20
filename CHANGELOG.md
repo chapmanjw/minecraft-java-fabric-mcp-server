@@ -236,8 +236,8 @@ All notable changes to this project will be documented in this file. The format 
   integration, version compatibility, troubleshooting.
 - **CI/CD**: matrix build across all three Minecraft targets (per-target JDK install via
   `actions/setup-java`), a `chiseledBuild` aggregate job that exercises the full matrix in a
-  single Gradle invocation, Spotless + Checkstyle lint, CodeQL security analysis, GitHub
-  Releases publication. Modrinth and CurseForge publishers are scaffolded as commented blocks
+  single Gradle invocation, Spotless + Checkstyle lint, GitHub Releases publication.
+  Modrinth and CurseForge publishers are scaffolded as commented blocks
   pending org secrets.
 - **Unit tests** for config loading + env-var override precedence, constant-time token compare,
   Host / Origin / bearer security filter, rate limiter, main-thread executor, event ring buffer,
