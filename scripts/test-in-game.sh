@@ -374,6 +374,22 @@ sync_launcher_profile() {
     echo "$profile_key"
 }
 
+launcher_is_running() {
+    # The Minecraft Launcher writes its in-memory state back to
+    # launcher_profiles.json on shutdown and on certain profile changes. Any
+    # edits made while it is running get silently overwritten.
+    case "$OS" in
+        Darwin)
+            pgrep -fi "Minecraft\.app" >/dev/null 2>&1 && return 0
+            pgrep -fi "Minecraft Launcher" >/dev/null 2>&1 && return 0
+            ;;
+        Linux)
+            pgrep -f "minecraft-launcher" >/dev/null 2>&1 && return 0
+            ;;
+    esac
+    return 1
+}
+
 find_launcher() {
     case "$OS" in
         Darwin)
@@ -402,6 +418,15 @@ printf '%s Minecraft Fabric MCP Server -- local test setup%s\n' "$BOLD" "$RESET"
 printf '%s Minecraft target: %s%s\n' "$CYAN" "$VERSION" "$RESET"
 printf '%s Game dir:         %s%s\n' "$CYAN" "$GAME_DIR" "$RESET"
 printf '%s================================================================%s\n' "$CYAN" "$RESET"
+
+if launcher_is_running; then
+    echo
+    echo "ERROR: Minecraft Launcher is currently running." >&2
+    echo "       The launcher rewrites launcher_profiles.json on close / profile change," >&2
+    echo "       which silently overwrites the MCP profile this script adds." >&2
+    echo "       Close the launcher window completely, then re-run the script." >&2
+    exit 1
+fi
 
 # --- 1) Build the mod jar ---------------------------------------------------
 

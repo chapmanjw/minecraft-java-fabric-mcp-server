@@ -344,6 +344,21 @@ function Find-MinecraftLauncher {
     return $null
 }
 
+function Test-LauncherRunning {
+    # The Minecraft Launcher writes its in-memory state back to
+    # launcher_profiles.json on shutdown and on certain profile changes. Any
+    # edits made while it is running get silently overwritten. Detect a running
+    # process by name; covers the legacy ("MinecraftLauncher") and Microsoft
+    # Store ("Minecraft") variants.
+    $names = @('MinecraftLauncher', 'Minecraft Launcher', 'Minecraft')
+    foreach ($n in $names) {
+        if (Get-Process -Name $n -ErrorAction SilentlyContinue) {
+            return $true
+        }
+    }
+    return $false
+}
+
 # --- main --------------------------------------------------------------------
 
 Write-Host ""
@@ -352,6 +367,15 @@ Write-Host " Minecraft Fabric MCP Server -- local test setup"                -Fo
 Write-Host " Minecraft target: $Version"                                     -ForegroundColor Cyan
 Write-Host " Game dir:         $GameDir"                                     -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
+
+if (Test-LauncherRunning) {
+    Write-Host ""
+    Write-Host "ERROR: Minecraft Launcher is currently running." -ForegroundColor Red
+    Write-Host "       The launcher rewrites launcher_profiles.json on close / profile change," -ForegroundColor Red
+    Write-Host "       which silently overwrites the MCP profile this script adds." -ForegroundColor Red
+    Write-Host "       Close the launcher window completely, then re-run the script." -ForegroundColor Red
+    exit 1
+}
 
 # --- 1) Build the mod jar ----------------------------------------------------
 
