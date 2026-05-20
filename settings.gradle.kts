@@ -38,7 +38,7 @@ pluginManagement {
 plugins {
     // Stonecutter drives the multi-version build (one source tree → N jars).
     // Pin to the 0.8.x line to avoid unexpected plugin upgrades breaking the matrix.
-    id("dev.kikugie.stonecutter") version "0.8.3"
+    id("dev.kikugie.stonecutter") version "0.9.4"
 }
 
 stonecutter {
