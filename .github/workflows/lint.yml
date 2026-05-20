@@ -61,3 +61,31 @@ jobs:
           test -f versions/1.21.11/build.gradle.kts
           test -f versions/26.1.1/build.gradle.kts
           test -f versions/26.1.2/build.gradle.kts
+
+      - name: PowerShell scripts are ASCII-only
+        # PowerShell 5.1 reads .ps1 files as Windows-1252 unless a UTF-8 BOM is
+        # present. Multi-byte UTF-8 chars (em-dashes, arrows, smart quotes) get
+        # reinterpreted as garbage bytes and silently break the parser with
+        # baffling error messages. Hard-fail any non-ASCII byte in a .ps1.
+        # Pure ASCII is a subset of every encoding PS supports, so this is the
+        # cheapest rule that prevents the failure mode entirely.
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          offenders = []
+          for path in pathlib.Path('.').rglob('*.ps1'):
+              try:
+                  path.read_text(encoding='ascii')
+              except UnicodeDecodeError as e:
+                  offenders.append((str(path), e.reason, e.start))
+          if offenders:
+              print('::error::Non-ASCII bytes found in PowerShell scripts:')
+              for p, reason, pos in offenders:
+                  print(f'  {p} (byte {pos}: {reason})')
+              print()
+              print('PowerShell 5.1 misparses these files. Replace non-ASCII chars')
+              print('with ASCII equivalents (e.g. -- for em-dash, -> for arrow,')
+              print('straight ASCII quotes for smart quotes).')
+              sys.exit(1)
+          print('All .ps1 files are ASCII-only.')
+          PY

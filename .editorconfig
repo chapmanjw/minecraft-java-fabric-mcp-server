@@ -17,5 +17,14 @@ trim_trailing_whitespace = false
 [*.{gradle.kts,gradle,properties}]
 indent_size = 4
 
+# Windows scripts: keep batch as CRLF (cmd.exe insists), PowerShell as LF.
+# IMPORTANT: PowerShell 5.1 reads .ps1 as Windows-1252 without a BOM, so any
+# multi-byte UTF-8 char (em-dash, arrow, smart quote, etc.) silently breaks
+# the parser. Keep .ps1 files ASCII-only; the Lint workflow enforces this.
+[*.bat]
+end_of_line = crlf
+[*.ps1]
+end_of_line = lf
+
 [Makefile]
 indent_style = tab
