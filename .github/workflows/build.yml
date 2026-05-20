@@ -52,7 +52,7 @@ jobs:
           java-version-file: ""
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-home-cache-cleanup: true
 
@@ -97,7 +97,7 @@ jobs:
           java-version: 25
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: chiseledBuild
         run: ./gradlew chiseledBuild --no-daemon --stacktrace
