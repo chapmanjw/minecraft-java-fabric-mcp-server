@@ -180,6 +180,63 @@ find_java() {
     exit 1
 }
 
+find_jdk_home() {
+    # Locate the install root of a specific JDK major version. Echoes the path
+    # if found, empty otherwise. Used by set_gradle_toolchain_env so the
+    # toolchain locator declared in gradle.properties
+    # (org.gradle.java.installations.fromEnv = JDK_21,JDK_25,...) actually
+    # resolves to something on the user's machine.
+    local major="$1"
+    # 1) Already in env? Trust it.
+    local v
+    for v in "JDK_$major" "JAVA_HOME_${major}_X64"; do
+        local val="${!v:-}"
+        if [[ -n "$val" && -x "$val/bin/java" ]]; then
+            echo "$val"; return
+        fi
+    done
+    # 2) Probe common locations.
+    if [[ "$OS" == "Darwin" ]] && command -v /usr/libexec/java_home >/dev/null 2>&1; then
+        local home
+        home=$(/usr/libexec/java_home -v "$major" 2>/dev/null || true)
+        if [[ -n "$home" && -x "$home/bin/java" ]]; then
+            echo "$home"; return
+        fi
+    fi
+    if [[ "$OS" == "Linux" ]]; then
+        for d in /usr/lib/jvm/temurin-${major}* /usr/lib/jvm/java-${major}* /usr/lib/jvm/java-1.${major}* /usr/lib/jvm/adoptium-${major}* /usr/lib/jvm/zulu${major}*; do
+            if [[ -x "$d/bin/java" ]]; then
+                echo "$d"; return
+            fi
+        done
+    fi
+    echo ""
+}
+
+set_gradle_toolchain_env() {
+    # Populate the env vars Gradle's toolchain locator reads (per
+    # gradle.properties:org.gradle.java.installations.fromEnv). Without these,
+    # the compile step fails with "no toolchain matching languageVersion=21" --
+    # a confusing error that's actually just a missing-env-var issue.
+    local jdk21 jdk25
+    jdk21=$(find_jdk_home 21)
+    jdk25=$(find_jdk_home 25)
+    if [[ -n "$jdk21" ]]; then
+        export JDK_21="$jdk21"
+        export JAVA_HOME_21_X64="$jdk21"
+        info "JDK 21: $jdk21"
+    else
+        info "JDK 21: not found (Gradle will reject if a 1.21.x target needs it)"
+    fi
+    if [[ -n "$jdk25" ]]; then
+        export JDK_25="$jdk25"
+        export JAVA_HOME_25_X64="$jdk25"
+        info "JDK 25: $jdk25"
+    else
+        info "JDK 25: not found (Gradle will reject if a 26.1.x target needs it)"
+    fi
+}
+
 resolve_loader_version() {
     local mc="$1"
     if [[ -n "$LOADER_VERSION" ]]; then
@@ -358,7 +415,12 @@ if [[ "$SKIP_BUILD" -eq 1 ]]; then
     info "Using existing $MOD_JAR"
 else
     step "Building mod jar for $VERSION"
-    (cd "$REPO_ROOT" && ./gradlew ":${VERSION}:build" 2>&1) | sed 's/^/    | /'
+    set_gradle_toolchain_env
+    # Stream Gradle output straight through so compile / toolchain errors are
+    # visible in real time. The earlier `2>&1 | sed` indirection swallowed
+    # them and made "no toolchain matching languageVersion=21" look like a
+    # generic build failure.
+    (cd "$REPO_ROOT" && ./gradlew ":${VERSION}:build" --stacktrace)
     if [[ ! -f "$MOD_JAR" ]]; then
         echo "Error: Gradle reported success but $MOD_JAR is missing." >&2
         exit 1

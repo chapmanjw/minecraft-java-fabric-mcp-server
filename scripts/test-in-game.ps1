@@ -93,7 +93,7 @@ function Ensure-Dir {
 function Find-Java {
     # Toolchain JDK: 1.21.x -> JDK 21, 26.1.x -> JDK 25. We only need a working
     # JRE to RUN the Fabric installer jar -- the heavy compilation toolchain
-    # lookup happens inside Gradle separately.
+    # lookup happens inside Gradle separately (see Set-GradleToolchainEnv).
     $candidates = @(
         $env:JAVA_HOME,
         $env:JAVA_HOME_21_X64,
@@ -112,6 +112,67 @@ function Find-Java {
     $cmd = Get-Command java -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     throw "Couldn't locate a Java runtime. Set JAVA_HOME or install Corretto 21/25."
+}
+
+function Find-JdkHome {
+    # Locate the install root of a specific JDK major version. Returns $null
+    # if not found. Used to set the env vars Gradle's toolchain locator reads
+    # (gradle.properties declares org.gradle.java.installations.fromEnv =
+    # JDK_21,JDK_25,JAVA_HOME_21_X64,JAVA_HOME_25_X64). Without these, Gradle
+    # auto-detection on Windows usually misses Corretto and compileJava fails
+    # with "No Java installations matching: { languageVersion=21 }".
+    param([int]$Major)
+
+    # 1) Already in env? Trust the user.
+    $envName1 = "JDK_$Major"
+    $envName2 = "JAVA_HOME_${Major}_X64"
+    foreach ($name in @($envName1, $envName2)) {
+        $value = [System.Environment]::GetEnvironmentVariable($name)
+        if ($value -and (Test-Path -LiteralPath (Join-Path $value 'bin\java.exe'))) {
+            return $value
+        }
+    }
+
+    # 2) Probe common install locations on Windows.
+    $patterns = @(
+        "$env:ProgramFiles\Amazon Corretto\jdk$Major*",
+        "$env:ProgramFiles\Eclipse Adoptium\jdk-$Major*",
+        "$env:ProgramFiles\Microsoft\jdk-$Major*",
+        "$env:ProgramFiles\Java\jdk-$Major*"
+    )
+    foreach ($pat in $patterns) {
+        $hits = Get-ChildItem -Path $pat -ErrorAction SilentlyContinue -Directory | Sort-Object Name -Descending
+        foreach ($hit in $hits) {
+            if (Test-Path -LiteralPath (Join-Path $hit.FullName 'bin\java.exe')) {
+                return $hit.FullName
+            }
+        }
+    }
+    return $null
+}
+
+function Set-GradleToolchainEnv {
+    # Populate the env vars Gradle's toolchain locator reads (per
+    # gradle.properties:org.gradle.java.installations.fromEnv). Skips an entry
+    # if no matching JDK is installed; Gradle will then error out with a
+    # readable "no toolchain matching language version N" instead of failing
+    # somewhere deeper.
+    $jdk21 = Find-JdkHome -Major 21
+    $jdk25 = Find-JdkHome -Major 25
+    if ($jdk21) {
+        $env:JDK_21 = $jdk21
+        $env:JAVA_HOME_21_X64 = $jdk21
+        Write-Info "JDK 21: $jdk21"
+    } else {
+        Write-Info "JDK 21: not found (Gradle will reject if a 1.21.x target needs it)"
+    }
+    if ($jdk25) {
+        $env:JDK_25 = $jdk25
+        $env:JAVA_HOME_25_X64 = $jdk25
+        Write-Info "JDK 25: $jdk25"
+    } else {
+        Write-Info "JDK 25: not found (Gradle will reject if a 26.1.x target needs it)"
+    }
 }
 
 function Get-LatestStable {
@@ -300,11 +361,21 @@ if ($SkipBuild) {
     Write-Info "Using existing $modJar"
 } else {
     Write-Step "Building mod jar for $Version"
+    # Populate JDK_21 / JDK_25 / JAVA_HOME_*_X64 so Gradle's toolchain locator
+    # finds Corretto / Adoptium installs the user may have. Without these,
+    # gradle.properties:org.gradle.java.installations.fromEnv has nothing to
+    # match against and compileJava fails with "no toolchain matching
+    # languageVersion=21" -- a notoriously confusing error.
+    Set-GradleToolchainEnv
     Push-Location $RepoRoot
     try {
-        & cmd /c "gradlew.bat :${Version}:build" 2>&1 | ForEach-Object { Write-Host "    | $_" }
+        # Run gradlew.bat directly via PowerShell's native call operator (&) so
+        # compile errors and stack traces stream to the terminal in real time
+        # instead of being swallowed by `cmd /c "..." 2>&1 |` indirection.
+        $gradlewBat = Join-Path $RepoRoot 'gradlew.bat'
+        & $gradlewBat ":${Version}:build" --stacktrace
         if ($LASTEXITCODE -ne 0) {
-            throw "Gradle build for :$Version`:build failed with code $LASTEXITCODE"
+            throw "Gradle build for :${Version}:build failed with code $LASTEXITCODE. See the output above for the underlying compiler / task error."
         }
     } finally {
         Pop-Location
