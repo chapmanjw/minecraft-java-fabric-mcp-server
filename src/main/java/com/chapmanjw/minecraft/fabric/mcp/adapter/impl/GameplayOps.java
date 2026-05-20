@@ -40,7 +40,8 @@ final class GameplayOps {
     }
 
     CommandResult commandExecuteAs(String command, UUID actor) {
-        return ctx.commandExecute("execute as " + actor + " run " + command);
+        return ctx.commandExecute(
+                "execute as " + AdapterContext.entitySelector(actor) + " run " + command);
     }
 
     // =====================================================================
@@ -73,16 +74,22 @@ final class GameplayOps {
         if (displayName != null && !displayName.isBlank()) {
             sb.append(' ').append(AdapterContext.asJsonText(displayName));
         }
-        return ctx.commandExecute(sb.toString()).successCount() > 0;
+        // /scoreboard objectives add is a void setter.
+        return AdapterContext.commandOk(ctx.commandExecute(sb.toString()));
     }
 
     boolean scoreboardRemoveObjective(String name) {
-        return ctx.commandExecute("scoreboard objectives remove " + name).successCount() > 0;
+        // /scoreboard objectives remove is a void setter; it returns successCount=0 even
+        // on the happy path, so the previous > 0 check always reported "failed".
+        return AdapterContext.commandOk(
+                ctx.commandExecute("scoreboard objectives remove " + name));
     }
 
     boolean scoreboardSetDisplaySlot(String slot, String objectiveName) {
-        return ctx.commandExecute("scoreboard objectives setdisplay " + slot + " " + objectiveName)
-                        .successCount() > 0;
+        // /scoreboard objectives setdisplay is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "scoreboard objectives setdisplay " + slot + " " + objectiveName));
     }
 
     int scoreboardGetScore(String participant, String objectiveName) {
@@ -102,20 +109,34 @@ final class GameplayOps {
     }
 
     boolean scoreboardSetScore(String participant, String objectiveName, int score) {
-        return ctx.commandExecute(
-                        "scoreboard players set " + participant + " " + objectiveName + " " + score)
-                .successCount() > 0;
+        // /scoreboard players set is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "scoreboard players set "
+                                + participant
+                                + " "
+                                + objectiveName
+                                + " "
+                                + score));
     }
 
     boolean scoreboardAddScore(String participant, String objectiveName, int delta) {
-        return ctx.commandExecute(
-                        "scoreboard players add " + participant + " " + objectiveName + " " + delta)
-                .successCount() > 0;
+        // /scoreboard players add is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "scoreboard players add "
+                                + participant
+                                + " "
+                                + objectiveName
+                                + " "
+                                + delta));
     }
 
     boolean scoreboardResetParticipant(String participant, String objectiveName) {
-        return ctx.commandExecute("scoreboard players reset " + participant + " " + objectiveName)
-                        .successCount() > 0;
+        // /scoreboard players reset is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "scoreboard players reset " + participant + " " + objectiveName));
     }
 
     List<TeamInfo> scoreboardListTeams() {
@@ -141,15 +162,20 @@ final class GameplayOps {
         if (displayName != null && !displayName.isBlank()) {
             sb.append(' ').append(AdapterContext.asJsonText(displayName));
         }
-        return ctx.commandExecute(sb.toString()).successCount() > 0;
+        // /team add is a void setter.
+        return AdapterContext.commandOk(ctx.commandExecute(sb.toString()));
     }
 
     boolean scoreboardRemoveTeam(String name) {
-        return ctx.commandExecute("team remove " + name).successCount() > 0;
+        // /team remove is a void setter (successCount=0 even on success).
+        return AdapterContext.commandOk(ctx.commandExecute("team remove " + name));
     }
 
     boolean scoreboardTeamAddMember(String teamName, String participant) {
-        return ctx.commandExecute("team join " + teamName + " " + participant).successCount() > 0;
+        // /team join is a void setter; returning successCount > 0 reported "failed" on
+        // an already-joined member.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("team join " + teamName + " " + participant));
     }
 
     boolean scoreboardTeamRemoveMember(String teamName, String participant) {
@@ -160,7 +186,7 @@ final class GameplayOps {
         // attach to @-prefixed selectors). If the caller needs scoped semantics, they
         // should query the current team first via `scoreboard_get_team_members` and
         // only call this if the participant is actually on the named team.
-        return ctx.commandExecute("team leave " + participant).successCount() > 0;
+        return AdapterContext.commandOk(ctx.commandExecute("team leave " + participant));
     }
 
     // =====================================================================
@@ -211,46 +237,66 @@ final class GameplayOps {
     }
 
     boolean bossbarAdd(String id, String name) {
-        return ctx.commandExecute("bossbar add " + id + " " + AdapterContext.asJsonText(name)).successCount() > 0;
+        // /bossbar add is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "bossbar add " + id + " " + AdapterContext.asJsonText(name)));
     }
 
     boolean bossbarRemove(String id) {
-        return ctx.commandExecute("bossbar remove " + id).successCount() > 0;
+        // /bossbar remove is a void setter (successCount=0 on success).
+        return AdapterContext.commandOk(ctx.commandExecute("bossbar remove " + id));
     }
 
     boolean bossbarSetValue(String id, int value) {
-        return ctx.commandExecute("bossbar set " + id + " value " + value).successCount() > 0;
+        // /bossbar set value is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("bossbar set " + id + " value " + value));
     }
 
     boolean bossbarSetMax(String id, int max) {
-        return ctx.commandExecute("bossbar set " + id + " max " + max).successCount() > 0;
+        // /bossbar set max is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("bossbar set " + id + " max " + max));
     }
 
     boolean bossbarSetName(String id, String name) {
-        return ctx.commandExecute("bossbar set " + id + " name " + AdapterContext.asJsonText(name)).successCount() > 0;
+        // /bossbar set name is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "bossbar set " + id + " name " + AdapterContext.asJsonText(name)));
     }
 
     boolean bossbarSetColor(String id, String color) {
-        return ctx.commandExecute("bossbar set " + id + " color " + color).successCount() > 0;
+        // /bossbar set color is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("bossbar set " + id + " color " + color));
     }
 
     boolean bossbarSetStyle(String id, String style) {
-        return ctx.commandExecute("bossbar set " + id + " style " + style).successCount() > 0;
+        // /bossbar set style is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("bossbar set " + id + " style " + style));
     }
 
     boolean bossbarSetVisible(String id, boolean visible) {
-        return ctx.commandExecute("bossbar set " + id + " visible " + visible).successCount() > 0;
+        // /bossbar set visible is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("bossbar set " + id + " visible " + visible));
     }
 
     boolean bossbarSetPlayers(String id, List<UUID> playerUuids) {
+        // /bossbar set players is a void setter. Each UUID must be wrapped in an
+        // @a[uuid=...] selector -- vanilla rejects bare UUIDs for player-target args.
         if (playerUuids == null || playerUuids.isEmpty()) {
-            return ctx.commandExecute("bossbar set " + id + " players").successCount() > 0;
+            return AdapterContext.commandOk(
+                    ctx.commandExecute("bossbar set " + id + " players"));
         }
         StringBuilder sb = new StringBuilder("bossbar set ").append(id).append(" players");
         for (UUID u : playerUuids) {
-            sb.append(' ').append(u);
+            sb.append(' ').append(AdapterContext.playerSelector(u));
         }
-        return ctx.commandExecute(sb.toString()).successCount() > 0;
+        return AdapterContext.commandOk(ctx.commandExecute(sb.toString()));
     }
 
     // =====================================================================
@@ -271,11 +317,21 @@ final class GameplayOps {
             String verb, UUID playerUuid, String advancementId, String mode, String criterion) {
         String m = mode == null || mode.isBlank() ? "only" : mode.toLowerCase(Locale.ROOT);
         StringBuilder sb = new StringBuilder("advancement ");
-        sb.append(verb).append(' ').append(playerUuid).append(' ').append(m).append(' ').append(advancementId);
+        // Vanilla rejects a bare UUID; wrap as @a[uuid=...].
+        sb.append(verb)
+                .append(' ')
+                .append(AdapterContext.playerSelector(playerUuid))
+                .append(' ')
+                .append(m)
+                .append(' ')
+                .append(advancementId);
         if ("only".equals(m) && criterion != null && !criterion.isBlank()) {
             sb.append(' ').append(criterion);
         }
-        return ctx.commandExecute(sb.toString()).successCount() > 0;
+        // /advancement grant/revoke returns successCount = criteria changed; when the
+        // player already has (or doesn't have) the criterion it returns 0 with no
+        // error. Use commandOk so the no-op case isn't reported as failure.
+        return AdapterContext.commandOk(ctx.commandExecute(sb.toString()));
     }
 
     AdvancementProgressInfo advancementListPlayer(UUID playerUuid) {
@@ -334,10 +390,17 @@ final class GameplayOps {
 
     boolean functionRun(String functionId, UUID asEntity) {
         if (asEntity != null) {
-            return ctx.commandExecute("execute as " + asEntity + " run function " + functionId)
-                            .successCount() > 0;
+            // /function reports a meaningful successCount (commands executed in the
+            // function); a function with no successful commands still ran -- prefer
+            // commandOk so an empty function doesn't look like a failure.
+            return AdapterContext.commandOk(
+                    ctx.commandExecute(
+                            "execute as "
+                                    + AdapterContext.entitySelector(asEntity)
+                                    + " run function "
+                                    + functionId));
         }
-        return ctx.commandExecute("function " + functionId).successCount() > 0;
+        return AdapterContext.commandOk(ctx.commandExecute("function " + functionId));
     }
 
     List<String> functionList(String namespaceFilter) {
@@ -371,13 +434,14 @@ final class GameplayOps {
 
     boolean scheduleFunction(String functionId, int ticks, String mode) {
         String m = mode == null || mode.isBlank() ? "replace" : mode.toLowerCase(Locale.ROOT);
-        return ctx.commandExecute(
-                                "schedule function " + functionId + " " + ticks + "t " + m)
-                        .successCount() > 0;
+        // /schedule function is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("schedule function " + functionId + " " + ticks + "t " + m));
     }
 
     boolean scheduleClear(String functionId) {
-        return ctx.commandExecute("schedule clear " + functionId).successCount() > 0;
+        // /schedule clear is a void setter; returns 0 when no schedule was active.
+        return AdapterContext.commandOk(ctx.commandExecute("schedule clear " + functionId));
     }
 
     List<ScheduledFunctionInfo> scheduleList() {
@@ -410,19 +474,27 @@ final class GameplayOps {
     // =====================================================================
 
     boolean itemModifyEntitySlot(UUID entityUuid, String slot, String modifierId) {
-        return ctx.commandExecute(
-                                "item modify entity " + entityUuid + " " + slot + " " + modifierId)
-                        .successCount() > 0;
+        // /item modify entity is a void setter; bare UUIDs are rejected so wrap in
+        // an @e[uuid=...] selector.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "item modify entity "
+                                + AdapterContext.entitySelector(entityUuid)
+                                + " "
+                                + slot
+                                + " "
+                                + modifierId));
     }
 
     boolean itemModifyBlockSlot(
             String dimensionId, Vec3i position, String slot, String modifierId) {
-        return ctx.commandExecute(
-                                "execute in "
-                                        + dimensionId
-                                        + " run item modify block "
-                                        + position.x() + " " + position.y() + " " + position.z()
-                                        + " " + slot + " " + modifierId)
-                        .successCount() > 0;
+        // /item modify block is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "execute in "
+                                + dimensionId
+                                + " run item modify block "
+                                + position.x() + " " + position.y() + " " + position.z()
+                                + " " + slot + " " + modifierId));
     }
 }

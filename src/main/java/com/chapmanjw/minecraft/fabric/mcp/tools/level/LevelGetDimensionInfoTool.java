@@ -14,7 +14,7 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 
 @McpTool(
         name = "level_get_dimension_info",
-        description = "Returns dimension type, height range, time, and biome source for a dimension.")
+        description = "Returns dimension type, height range, current time, and core dimension flags. The legacy biomeSource field was removed in v0.2.x; call level_list_biomes_in_dimension instead.")
 public final class LevelGetDimensionInfoTool extends BaseTool {
 
     private static final JsonNode SCHEMA =
@@ -55,7 +55,6 @@ public final class LevelGetDimensionInfoTool extends BaseTool {
                     payload.put("ultrawarm", d.ultrawarm());
                     payload.put("piglinSafe", d.piglinSafe());
                     payload.put("natural", d.natural());
-                    payload.put("biomeSource", d.biomeSource());
                     return ToolResult.ofToon(payload);
                 });
     }

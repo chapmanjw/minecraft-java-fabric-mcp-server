@@ -156,9 +156,18 @@ public final class AdvancementTools {
         }
     }
 
-    @McpTool(name = "advancement_list_all", description = "Lists every advancement id from the registry.")
+    @McpTool(
+            name = "advancement_list_all",
+            description = "Lists every advancement id from the registry. Paginated: pass `offset`/`limit` to walk large result sets; response includes `total` and `next_offset` (null on the last page).")
     public static final class ListAll extends BaseTool {
-        private static final JsonNode SCHEMA = Schemas.object().description("No arguments.").build();
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .optional("offset", Schemas.integer("0-based offset (default 0)."))
+                        .optional(
+                                "limit",
+                                Schemas.integerBetween(
+                                        "Max ids returned (default 200, max 2000).", 1, 2000))
+                        .build();
 
         public ListAll() {
             super("advancement_list_all");
@@ -171,15 +180,28 @@ public final class AdvancementTools {
 
         @Override
         public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            int offset = Math.max(0, r.optInt("offset", 0));
+            int limit = Math.max(1, Math.min(2000, r.optInt("limit", 200)));
             return onMainThread(
                     context,
                     ignored -> {
                         List<String> ids = context.adapter().advancementListAll();
-                        ArrayNode arr = context.mapper().createArrayNode();
-                        for (String s : ids) {
-                            arr.add(s);
+                        int total = ids.size();
+                        int from = Math.min(offset, total);
+                        int to = Math.min(from + limit, total);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        ArrayNode items = payload.putArray("items");
+                        for (int i = from; i < to; i++) {
+                            items.add(ids.get(i));
                         }
-                        return ToolResult.ofToon(arr);
+                        payload.put("total", total);
+                        if (to < total) {
+                            payload.put("next_offset", to);
+                        } else {
+                            payload.putNull("next_offset");
+                        }
+                        return ToolResult.ofToon(payload);
                     });
         }
     }

@@ -31,10 +31,17 @@ public final class RegistryAccessTools {
 
     @McpTool(
             name = "loot_table_list",
-            description = "Lists every registered loot table.",
+            description = "Lists every registered loot table id. Paginated: pass `offset`/`limit` to walk large result sets; the response includes `total` and `next_offset`.",
             requiredFabricModules = {"fabric-loot-api-v3"})
     public static final class LootList extends BaseTool {
-        private static final JsonNode SCHEMA = Schemas.object().description("No arguments.").build();
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .optional("offset", Schemas.integer("0-based offset (default 0)."))
+                        .optional(
+                                "limit",
+                                Schemas.integerBetween(
+                                        "Max ids returned (default 200, max 2000).", 1, 2000))
+                        .build();
 
         public LootList() {
             super("loot_table_list");
@@ -47,13 +54,14 @@ public final class RegistryAccessTools {
 
         @Override
         public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            int offset = Math.max(0, r.optInt("offset", 0));
+            int limit = Math.max(1, Math.min(2000, r.optInt("limit", 200)));
             return onMainThread(
                     context,
                     ignored -> {
                         List<String> list = context.adapter().lootTableList();
-                        ArrayNode arr = context.mapper().createArrayNode();
-                        list.forEach(arr::add);
-                        return ToolResult.ofToon(arr);
+                        return paginate(context, list, offset, limit, s -> context.mapper().convertValue(s, JsonNode.class));
                     });
         }
     }
@@ -158,7 +166,9 @@ public final class RegistryAccessTools {
                     + "Valid type ids come from the minecraft:recipe_type registry: minecraft:crafting "
                     + "(covers both shaped and shapeless -- Mojang collapsed those into one type in 1.21+), "
                     + "minecraft:smelting, minecraft:blasting, minecraft:smoking, minecraft:campfire_cooking, "
-                    + "minecraft:stonecutting, minecraft:smithing_transform, minecraft:smithing_trim.",
+                    + "minecraft:stonecutting, minecraft:smithing_transform, minecraft:smithing_trim. "
+                    + "Paginated: pass `offset` and `limit` to walk large result sets; the response includes "
+                    + "`total` and `next_offset` (null when the last page has been returned).",
             requiredFabricModules = {"fabric-recipe-api-v1"})
     public static final class RecipeList extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -169,6 +179,13 @@ public final class RegistryAccessTools {
                                         "Recipe type id from minecraft:recipe_type "
                                                 + "(e.g. minecraft:crafting, minecraft:smelting). Shaped vs "
                                                 + "shapeless are both minecraft:crafting in 1.21+."))
+                        .optional("offset", Schemas.integer("0-based offset into the recipe list (default 0)."))
+                        .optional(
+                                "limit",
+                                Schemas.integerBetween(
+                                        "Maximum number of recipes to return (default 200, max 2000).",
+                                        1,
+                                        2000))
                         .build();
 
         public RecipeList() {
@@ -182,16 +199,16 @@ public final class RegistryAccessTools {
 
         @Override
         public ToolResult execute(JsonNode arguments, ToolContext context) {
-            String type = reader(arguments).optString("type", null);
+            var r = reader(arguments);
+            String type = r.optString("type", null);
+            int offset = Math.max(0, r.optInt("offset", 0));
+            int limit = Math.max(1, Math.min(2000, r.optInt("limit", 200)));
             return onMainThread(
                     context,
                     ignored -> {
                         var recipes = context.adapter().recipeList(type);
-                        ArrayNode arr = context.mapper().createArrayNode();
-                        for (RecipeInfo r : recipes) {
-                            arr.add(toJson(context, r));
-                        }
-                        return ToolResult.ofToon(arr);
+                        return paginate(
+                                context, recipes, offset, limit, ri -> toJson(context, ri));
                     });
         }
     }
@@ -296,6 +313,35 @@ public final class RegistryAccessTools {
                         return ToolResult.ofToon(arr);
                     });
         }
+    }
+
+    /**
+     * Wraps a possibly-large list slice in the canonical pagination envelope
+     * {@code { items: [...], total: N, next_offset: N|null }}. Callers walk pages until
+     * {@code next_offset} is null. Used by every list tool whose unfiltered response can
+     * exceed 50 KB.
+     */
+    static <T> ToolResult paginate(
+            ToolContext context,
+            List<T> all,
+            int offset,
+            int limit,
+            java.util.function.Function<T, JsonNode> toJson) {
+        int total = all.size();
+        int from = Math.min(offset, total);
+        int to = Math.min(from + limit, total);
+        ObjectNode payload = context.mapper().createObjectNode();
+        ArrayNode items = payload.putArray("items");
+        for (int i = from; i < to; i++) {
+            items.add(toJson.apply(all.get(i)));
+        }
+        payload.put("total", total);
+        if (to < total) {
+            payload.put("next_offset", to);
+        } else {
+            payload.putNull("next_offset");
+        }
+        return ToolResult.ofToon(payload);
     }
 
     private static ObjectNode toJson(ToolContext context, RecipeInfo r) {

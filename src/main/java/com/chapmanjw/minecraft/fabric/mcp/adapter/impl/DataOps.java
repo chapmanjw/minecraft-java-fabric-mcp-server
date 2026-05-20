@@ -38,29 +38,52 @@ final class DataOps {
     // Data — v0.2.0
     // =====================================================================
 
+    /**
+     * Vanilla command storage is keyed by a single namespaced id (e.g. {@code mcp:default});
+     * the {@code path} argument the adapter exposes is the NBT path WITHIN that storage tree.
+     * The legacy form {@code <ns>:<ns>} for the storage id meant set and get could disagree
+     * about which storage the path resolved against, so we canonicalize on {@code <ns>:default}.
+     */
+    private static String storageId(String namespace) {
+        return namespace + ":default";
+    }
+
     Optional<String> dataStorageGet(String namespace, String path) {
-        String safePath = path == null ? "" : path;
-        CommandResult r =
-                ctx.commandExecute(
-                        "data get storage " + namespace + ":" + namespace + " " + safePath);
-        if (r.successCount() == 0) {
+        String safePath = path == null ? "" : path.trim();
+        // `/data get storage <id> <path>` requires a path; if none was passed, fall back
+        // to dumping the whole storage tree.
+        String cmd = safePath.isEmpty()
+                ? "data get storage " + storageId(namespace)
+                : "data get storage " + storageId(namespace) + " " + safePath;
+        CommandResult r = ctx.commandExecute(cmd);
+        if (r.error() != null) {
             return Optional.empty();
         }
-        return r.output().stream().findFirst();
+        // `/data get` reports the value via the command source as a feedback message
+        // even when successCount==1; collect the first output line.
+        if (!r.output().isEmpty()) {
+            return Optional.of(r.output().get(0));
+        }
+        return r.successCount() > 0 ? Optional.of("") : Optional.empty();
     }
 
     boolean dataStorageSet(String namespace, String path, String snbt, boolean merge) {
-        String verb = merge ? "merge" : "modify";
-        String suffix = merge ? snbt : ("set value " + snbt);
-        String cmd =
-                "data " + verb + " storage " + namespace + ":" + namespace
-                        + " " + path + " " + suffix;
-        return ctx.commandExecute(cmd).successCount() > 0;
+        // `/data merge storage <id> <snbt>` merges into the root of the storage tree, while
+        // `/data modify storage <id> <path> set value <snbt>` writes a single path. The
+        // merge form ignores `path` entirely, so callers asking for `merge=true` with a
+        // path must use modify-set-value to land at the expected location.
+        String cmd;
+        if (merge && (path == null || path.isBlank())) {
+            cmd = "data merge storage " + storageId(namespace) + " " + snbt;
+        } else {
+            cmd = "data modify storage " + storageId(namespace) + " " + path + " set value " + snbt;
+        }
+        return AdapterContext.commandOk(ctx.commandExecute(cmd));
     }
 
     boolean dataStorageRemove(String namespace, String path) {
-        return ctx.commandExecute("data remove storage " + namespace + ":" + namespace + " " + path).successCount()
-                > 0;
+        return AdapterContext.commandOk(
+                ctx.commandExecute("data remove storage " + storageId(namespace) + " " + path));
     }
 
     List<String> dataStorageListNamespaces() {
@@ -242,10 +265,12 @@ final class DataOps {
     }
 
     boolean datapackEnable(String id) {
-        return ctx.commandExecute("datapack enable " + id).successCount() > 0;
+        // /datapack enable is a void setter; reports 0 on the happy path.
+        return AdapterContext.commandOk(ctx.commandExecute("datapack enable " + id));
     }
 
     boolean datapackDisable(String id) {
-        return ctx.commandExecute("datapack disable " + id).successCount() > 0;
+        // /datapack disable is a void setter; reports 0 on the happy path.
+        return AdapterContext.commandOk(ctx.commandExecute("datapack disable " + id));
     }
 }

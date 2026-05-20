@@ -9,7 +9,9 @@ import com.chapmanjw.minecraft.fabric.mcp.protocol.ToolResult;
 import com.chapmanjw.minecraft.fabric.mcp.tools.BaseTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 
-@McpTool(name = "level_lightning_strike", description = "Summons a lightning bolt at a position.")
+@McpTool(
+        name = "level_lightning_strike",
+        description = "Summons a lightning bolt at a position. When `cosmetic=true` the bolt is spawned via the direct API with setVisualOnly(true) so it does no damage and starts no fires; when `cosmetic=false` (the default) we dispatch /summon minecraft:lightning_bolt for parity with the command surface. Vanilla 1.21+ does not expose a command-line knob for visual-only lightning, so the cosmetic mode bypasses /summon.")
 public final class LevelLightningStrikeTool extends BaseTool {
 
     private static final JsonNode SCHEMA =

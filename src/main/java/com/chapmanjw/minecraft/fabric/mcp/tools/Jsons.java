@@ -137,8 +137,11 @@ public final class Jsons {
         ObjectNode n = m.createObjectNode();
         n.put("id", s.id());
         n.put("count", s.count());
-        if (s.components() != null) {
-            n.put("components", s.components());
+        if (!s.componentKeys().isEmpty()) {
+            ArrayNode keys = n.putArray("componentKeys");
+            for (String k : s.componentKeys()) {
+                keys.add(k);
+            }
         }
         n.put("maxStackSize", s.maxStackSize());
         n.put("maxDurability", s.maxDurability());

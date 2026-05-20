@@ -135,13 +135,29 @@ class DtoSmokeTest {
 
     @Test
     void itemStackInfoStoresAllFields() {
-        var s = new ItemStackInfo("minecraft:iron_pickaxe", 1, "{Damage:42}", 1, 250, 42);
+        // Bug 7 fix: ItemStackInfo now carries List<String> componentKeys instead of a
+        // raw SNBT string. The pre-fix value (`s.getComponents().toString()`) emitted
+        // intermediary class names like `class_10711[...]` because Component.toString()
+        // is not stable under Fabric Loader runtime mappings, and the full SNBT blob
+        // was 50+ KB per stack. Tests now exercise the new accessor.
+        var s =
+                new ItemStackInfo(
+                        "minecraft:iron_pickaxe",
+                        1,
+                        List.of("minecraft:damage", "minecraft:max_stack_size"),
+                        1,
+                        250,
+                        42);
         assertEquals("minecraft:iron_pickaxe", s.id());
         assertEquals(1, s.count());
-        assertEquals("{Damage:42}", s.components());
+        assertEquals(2, s.componentKeys().size());
         assertEquals(1, s.maxStackSize());
         assertEquals(250, s.maxDurability());
         assertEquals(42, s.damage());
+
+        // Null componentKeys → empty list (defensive copy).
+        var bare = new ItemStackInfo("minecraft:stone", 1, null, 64, 0, 0);
+        assertTrue(bare.componentKeys().isEmpty());
     }
 
     @Test
@@ -224,6 +240,9 @@ class DtoSmokeTest {
 
     @Test
     void dimensionInfoStoresAllFields() {
+        // Bug 7 fix: the legacy `biomeSource` field was removed in v0.2.x -- it never
+        // populated to anything but the empty string and clients hit it expecting useful
+        // data. Constructor surface now has nine fields instead of ten.
         var d =
                 new DimensionInfo(
                         "minecraft:overworld",
@@ -234,8 +253,7 @@ class DtoSmokeTest {
                         false,
                         false,
                         true,
-                        true,
-                        "Vanilla");
+                        true);
         assertEquals("minecraft:overworld", d.id());
         assertEquals(-64, d.minY());
         assertTrue(d.piglinSafe());

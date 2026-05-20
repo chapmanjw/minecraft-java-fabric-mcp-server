@@ -131,9 +131,18 @@ public final class StructureTools {
         }
     }
 
-    @McpTool(name = "structure_list", description = "Lists every saved structure (in-memory and on-disk).")
+    @McpTool(
+            name = "structure_list",
+            description = "Lists every saved structure (in-memory and on-disk). Paginated: pass `offset`/`limit`; response includes `total` and `next_offset`.")
     public static final class ListAll extends BaseTool {
-        private static final JsonNode SCHEMA = Schemas.object().description("No arguments.").build();
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .optional("offset", Schemas.integer("0-based offset (default 0)."))
+                        .optional(
+                                "limit",
+                                Schemas.integerBetween(
+                                        "Max structures returned (default 200, max 2000).", 1, 2000))
+                        .build();
 
         public ListAll() {
             super("structure_list");
@@ -146,13 +155,21 @@ public final class StructureTools {
 
         @Override
         public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            int offset = Math.max(0, r.optInt("offset", 0));
+            int limit = Math.max(1, Math.min(2000, r.optInt("limit", 200)));
             return onMainThread(
                     context,
                     ignored -> {
                         List<StructureInfo> list = context.adapter().structureList();
-                        ArrayNode arr = context.mapper().createArrayNode();
-                        for (StructureInfo s : list) {
-                            ObjectNode n = arr.addObject();
+                        int total = list.size();
+                        int from = Math.min(offset, total);
+                        int to = Math.min(from + limit, total);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        ArrayNode items = payload.putArray("items");
+                        for (int i = from; i < to; i++) {
+                            StructureInfo s = list.get(i);
+                            ObjectNode n = items.addObject();
                             n.put("name", s.name());
                             n.put("sizeX", s.sizeX());
                             n.put("sizeY", s.sizeY());
@@ -161,7 +178,13 @@ public final class StructureTools {
                             n.put("onDisk", s.onDisk());
                             n.put("inMemory", s.inMemory());
                         }
-                        return ToolResult.ofToon(arr);
+                        payload.put("total", total);
+                        if (to < total) {
+                            payload.put("next_offset", to);
+                        } else {
+                            payload.putNull("next_offset");
+                        }
+                        return ToolResult.ofToon(payload);
                     });
         }
     }

@@ -190,6 +190,13 @@ public final class EntityTools {
                                                         new McpException(
                                                                 ErrorCodes.TOOL_HANDLER_ERROR,
                                                                 "Entity not found"));
+                        // The adapter currently returns an empty map for non-player entities --
+                        // vanilla's component API for entities is limited. Encode as literal
+                        // "{}" so callers see an explicit empty payload instead of a blank
+                        // content block (Toon-encoded {} renders as zero text).
+                        if (map.isEmpty()) {
+                            return ToolResult.ofText("{}");
+                        }
                         ObjectNode payload = context.mapper().createObjectNode();
                         map.forEach(payload::put);
                         return ToolResult.ofToon(payload);

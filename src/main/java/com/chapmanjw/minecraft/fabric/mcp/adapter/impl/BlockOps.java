@@ -140,24 +140,27 @@ final class BlockOps {
             String destDimension,
             Vec3i destinationOrigin,
             MinecraftAdapter.CloneMode mode) {
+        // Vanilla /clone syntax in 1.21+:
+        //   clone [from <srcDim>] <begin> <end> [to <destDim>] <destination>
+        //         [filtered|masked|replace] [force|move|normal]
+        // The pre-fix form unconditionally injected a `to <x> <y> <z>` between the
+        // source box and destination -- vanilla then parsed `to` as a dimension id
+        // and the destination coordinates as garbage, so the clone never ran. Build
+        // the command compositionally so cross-dimension and same-dimension forms
+        // each match the parser.
         String modeStr = mode == null ? "normal" : mode.name().toLowerCase(Locale.ROOT);
-        CommandResult r =
-                ctx.commandExecute(
-                        String.format(
-                                Locale.ROOT,
-                                "execute in %s run clone from %s %d %d %d %d %d %d to %d %d %d %s",
-                                destDimension,
-                                sourceDimension,
-                                source.x1(),
-                                source.y1(),
-                                source.z1(),
-                                source.x2(),
-                                source.y2(),
-                                source.z2(),
-                                destinationOrigin.x(),
-                                destinationOrigin.y(),
-                                destinationOrigin.z(),
-                                modeStr));
+        StringBuilder cmd = new StringBuilder("execute in ").append(destDimension).append(" run clone ");
+        if (sourceDimension != null && !sourceDimension.equals(destDimension)) {
+            cmd.append("from ").append(sourceDimension).append(' ');
+        }
+        cmd.append(source.x1()).append(' ').append(source.y1()).append(' ').append(source.z1()).append(' ');
+        cmd.append(source.x2()).append(' ').append(source.y2()).append(' ').append(source.z2()).append(' ');
+        cmd.append(destinationOrigin.x()).append(' ')
+                .append(destinationOrigin.y()).append(' ')
+                .append(destinationOrigin.z());
+        // `replace` is the default filter; explicit so the mode token below is unambiguous.
+        cmd.append(" replace ").append(modeStr);
+        CommandResult r = ctx.commandExecute(cmd.toString());
         return r.successCount();
     }
 

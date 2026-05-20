@@ -79,7 +79,8 @@ public final class EventsTools {
                         .required(
                                 "event_types",
                                 Schemas.arrayOf(
-                                        "Event type wire names — see docs/tools.md", Schemas.string()))
+                                        "Event type wire names using dot notation (e.g. \"player.chat\", \"block.place\", \"entity.death\"). See docs/tools.md for the full list.",
+                                        Schemas.string()))
                         .optional(
                                 "filters",
                                 Schemas.object()

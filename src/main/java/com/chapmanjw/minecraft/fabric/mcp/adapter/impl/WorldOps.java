@@ -92,8 +92,7 @@ final class WorldOps {
                             dimType.hasCeiling(),
                             ultraWarm,
                             piglinSafe,
-                            natural,
-                            ""));
+                            natural));
         } catch (AdapterException ae) {
             return Optional.empty();
         }
@@ -258,14 +257,38 @@ final class WorldOps {
     }
 
     void levelLightningStrike(String dimensionId, Vec3d position, boolean cosmetic) {
-        String entityType = cosmetic ? "lightning_bolt {Cosmetic:1b}" : "lightning_bolt";
+        // Vanilla /summon syntax is `summon <entity> [<pos>] [<nbt>]` -- NBT goes at the
+        // end -- and `lightning_bolt` has no `Cosmetic` NBT field. The pre-fix command
+        // form (`summon lightning_bolt {Cosmetic:1b} <x> <y> <z>`) parsed as a position
+        // expression and produced "Expected double" at the NBT brace.
+        //
+        // Honour `cosmetic=true` via the direct API: spawning the bolt by hand lets us
+        // call setVisualOnly(true) which is the only stable way to suppress damage and
+        // fire without leaving a 'cosmetic' command-line knob (which vanilla doesn't
+        // expose). When cosmetic=false we summon via /summon for parity with the
+        // command surface.
+        if (cosmetic) {
+            ServerLevel level = ctx.requireLevel(dimensionId);
+            // EntitySpawnReason has the same enum surface on 1.21.11 and 26.1.x.
+            net.minecraft.world.entity.LightningBolt bolt =
+                    net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(
+                            level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            if (bolt == null) {
+                throw new AdapterException("Failed to construct lightning bolt entity");
+            }
+            // Modern Mojang mappings dropped Entity.moveTo(double, double, double) --
+            // use snapTo, which has the same teleport-without-interpolation semantics.
+            bolt.snapTo(position.x(), position.y(), position.z());
+            bolt.setVisualOnly(true);
+            level.addFreshEntity(bolt);
+            return;
+        }
         CommandResult r =
                 ctx.commandExecute(
                         String.format(
                                 Locale.ROOT,
-                                "execute in %s run summon %s %f %f %f",
+                                "execute in %s run summon minecraft:lightning_bolt %f %f %f",
                                 dimensionId,
-                                entityType,
                                 position.x(),
                                 position.y(),
                                 position.z()));
@@ -298,7 +321,7 @@ final class WorldOps {
             return Optional.empty();
         }
         String value = rules.getAsString(rule);
-        return Optional.of(new GameRuleInfo(name, value, rule.category().toString()));
+        return Optional.of(new GameRuleInfo(name, value, gameRuleCategoryName(rule)));
     }
 
     void levelSetGameRule(String name, String value) {
@@ -319,9 +342,35 @@ final class WorldOps {
                                         new GameRuleInfo(
                                                 rule.id(),
                                                 rules.getAsString(rule),
-                                                rule.category().toString())));
+                                                gameRuleCategoryName(rule))));
         out.sort((a, b) -> a.name().compareTo(b.name()));
         return out;
+    }
+
+    /**
+     * Returns the namespaced id (or path) of a game rule's category as a stable
+     * string. The legacy implementation called {@code category().toString()} which
+     * leaked the intermediary record class name under Fabric Loader runtime mappings
+     * (e.g. {@code class_5198[id=minecraft:updates]}). {@code GameRuleCategory} is a
+     * record holding an {@link Identifier}; the identifier {@code toString()} is
+     * stable across mapping layers ({@code minecraft:updates}).
+     */
+    private static String gameRuleCategoryName(GameRule<?> rule) {
+        try {
+            var category = rule.category();
+            if (category == null) {
+                return "";
+            }
+            Identifier id = category.id();
+            if (id == null) {
+                return "";
+            }
+            return id.toString();
+        } catch (Throwable t) {
+            // Belt and braces — if category() ever returns null on a future version
+            // we still want a stable string rather than the toString leak.
+            return "";
+        }
     }
 
     /**
@@ -457,12 +506,20 @@ final class WorldOps {
     boolean structureDelete(String name) {
         StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
         Identifier id = AdapterContext.parseIdentifier(name);
+        // The underlying StructureTemplateManager.remove returns void and silently no-ops on
+        // unknown ids, so callers were getting "deleted" even when no structure existed.
+        // Check both the in-memory cache AND the on-disk file before reporting success.
+        boolean existedInMemory = mgr.get(id).isPresent();
+        Path file = structureFilePath(id);
+        boolean existedOnDisk = file != null && Files.isRegularFile(file);
+        if (!existedInMemory && !existedOnDisk) {
+            return false;
+        }
         try {
             mgr.remove(id);
         } catch (Exception e) {
             return false;
         }
-        Path file = structureFilePath(id);
         if (file != null) {
             try {
                 Files.deleteIfExists(file);
@@ -624,6 +681,11 @@ final class WorldOps {
     }
 
     private boolean runInDim(String dimensionId, String command) {
-        return ctx.commandExecute("execute in " + dimensionId + " run " + command).successCount() > 0;
+        // All worldborder setters and the datapack enable/disable flow are void
+        // setters in vanilla -- they return successCount=0 on the happy path when the
+        // value is already at the target. Use commandOk so a no-op set isn't reported
+        // as a failure.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("execute in " + dimensionId + " run " + command));
     }
 }

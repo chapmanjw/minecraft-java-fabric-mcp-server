@@ -166,8 +166,12 @@ final class EntityOps {
     }
 
     boolean entitySetNbt(UUID uuid, String snbt) {
-        CommandResult r = ctx.commandExecute("data merge entity " + uuid + " " + snbt);
-        return r.successCount() > 0;
+        // /data merge is a void setter; commandOk so a merge that doesn't change any
+        // value (e.g. already at the target Motion vector) isn't reported as failure.
+        CommandResult r =
+                ctx.commandExecute(
+                        "data merge entity " + AdapterContext.entitySelector(uuid) + " " + snbt);
+        return AdapterContext.commandOk(r);
     }
 
     boolean entityTeleport(UUID uuid, String dimensionId, Vec3d position, Vec3d facingTarget) {
@@ -185,29 +189,40 @@ final class EntityOps {
                         Locale.ROOT,
                         "execute in %s run tp %s %f %f %f%s",
                         dimensionId,
-                        uuid,
+                        AdapterContext.entitySelector(uuid),
                         position.x(),
                         position.y(),
                         position.z(),
                         facing);
+        // /tp returns a meaningful successCount (1 per entity moved); keep the > 0 check.
         return ctx.commandExecute(cmd).successCount() > 0;
     }
 
     boolean entityApplyDamage(UUID uuid, float amount, String damageType) {
         String type = damageType == null || damageType.isBlank() ? "minecraft:generic" : damageType;
-        return ctx.commandExecute("damage " + uuid + " " + amount + " " + type).successCount() > 0;
+        // /damage returns successCount=1 on a hit; if the entity is invulnerable it
+        // returns 0 with no error, which is still "the command ran". Keep > 0.
+        return ctx.commandExecute(
+                                "damage "
+                                        + AdapterContext.entitySelector(uuid)
+                                        + " "
+                                        + amount
+                                        + " "
+                                        + type)
+                        .successCount() > 0;
     }
 
     boolean entitySetVelocity(UUID uuid, Vec3d velocity) {
-        return ctx.commandExecute(
+        // /data merge is a void setter; use commandOk.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
                         String.format(
                                 Locale.ROOT,
                                 "data merge entity %s {Motion:[%fd,%fd,%fd]}",
-                                uuid,
+                                AdapterContext.entitySelector(uuid),
                                 velocity.x(),
                                 velocity.y(),
-                                velocity.z()))
-                .successCount() > 0;
+                                velocity.z())));
     }
 
     boolean entityApplyEffect(
@@ -227,9 +242,12 @@ final class EntityOps {
                         ? 1
                         : (durationTicks + (ticksPerSecond - 1)) / ticksPerSecond;
         boolean hideParticles = !showParticles;
-        return ctx.commandExecute(
+        // /effect give is a void setter (successCount=0 if the entity already has the
+        // effect at higher amplifier); use commandOk.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
                         "effect give "
-                                + uuid
+                                + AdapterContext.entitySelector(uuid)
                                 + " "
                                 + effect
                                 + " "
@@ -237,12 +255,14 @@ final class EntityOps {
                                 + " "
                                 + amplifier
                                 + " "
-                                + hideParticles)
-                .successCount() > 0;
+                                + hideParticles));
     }
 
     boolean entityRemoveEffect(UUID uuid, String effect) {
-        return ctx.commandExecute("effect clear " + uuid + " " + effect).successCount() > 0;
+        // /effect clear is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "effect clear " + AdapterContext.entitySelector(uuid) + " " + effect));
     }
 
     List<StatusEffectInfo> entityGetEffects(UUID uuid) {
@@ -276,7 +296,8 @@ final class EntityOps {
     }
 
     boolean entityKill(UUID uuid) {
-        return ctx.commandExecute("kill " + uuid).successCount() > 0;
+        // /kill returns a meaningful successCount (entities killed); keep > 0.
+        return ctx.commandExecute("kill " + AdapterContext.entitySelector(uuid)).successCount() > 0;
     }
 
     boolean entityDespawn(UUID uuid) {
@@ -292,11 +313,18 @@ final class EntityOps {
     }
 
     boolean entityAddTag(UUID uuid, String tag) {
-        return ctx.commandExecute("tag " + uuid + " add " + tag).successCount() > 0;
+        // /tag add returns successCount=1 on a new tag and 0 if the tag is already
+        // present. The latter still means the command succeeded, so use commandOk.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "tag " + AdapterContext.entitySelector(uuid) + " add " + tag));
     }
 
     boolean entityRemoveTag(UUID uuid, String tag) {
-        return ctx.commandExecute("tag " + uuid + " remove " + tag).successCount() > 0;
+        // /tag remove returns 0 when the tag wasn't present; that's not a failure.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "tag " + AdapterContext.entitySelector(uuid) + " remove " + tag));
     }
 
     List<String> entityListTags(UUID uuid) {

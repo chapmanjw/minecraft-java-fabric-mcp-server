@@ -16,7 +16,9 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 public final class LevelGetGameRuleTool extends BaseTool {
 
     private static final JsonNode SCHEMA =
-            Schemas.object().required("name", Schemas.string("Game rule name (e.g. doDaylightCycle)")).build();
+            Schemas.object()
+                    .required("name", Schemas.string("Game rule id (e.g. randomTickSpeed, doMobSpawning) -- call level_list_game_rules to see the live registry."))
+                    .build();
 
     public LevelGetGameRuleTool() {
         super("level_get_game_rule");

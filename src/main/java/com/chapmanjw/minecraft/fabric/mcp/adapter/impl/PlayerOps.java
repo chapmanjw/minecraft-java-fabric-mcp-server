@@ -84,20 +84,44 @@ final class PlayerOps {
     }
 
     boolean playerGiveItem(UUID uuid, ItemSpec item) {
-        return ctx.commandExecute("give " + uuid + " " + item.id() + " " + item.count()).successCount() > 0;
+        // /give returns a meaningful successCount (1 per stack delivered) so we keep the
+        // > 0 check; the UUID needs the @a[uuid=...] wrapper because vanilla rejects a
+        // bare UUID for the player-target argument.
+        return ctx.commandExecute(
+                                "give "
+                                        + AdapterContext.playerSelector(uuid)
+                                        + " "
+                                        + item.id()
+                                        + " "
+                                        + item.count())
+                        .successCount() > 0;
     }
 
     boolean playerClearInventorySlot(UUID uuid, int slot) {
-        return ctx.commandExecute("item replace entity " + uuid + " container." + slot + " with minecraft:air")
+        // /item replace entity returns a meaningful successCount.
+        return ctx.commandExecute(
+                        "item replace entity "
+                                + AdapterContext.entitySelector(uuid)
+                                + " container."
+                                + slot
+                                + " with minecraft:air")
                         .successCount() > 0;
     }
 
     boolean playerClearAllInventory(UUID uuid) {
-        return ctx.commandExecute("clear " + uuid).successCount() > 0;
+        // /clear returns successCount=N (items cleared). On a player with zero matching
+        // items it reports 0, but the command still succeeded -- prefer commandOk so the
+        // empty-inventory case isn't reported as failure.
+        return AdapterContext.commandOk(
+                ctx.commandExecute("clear " + AdapterContext.playerSelector(uuid)));
     }
 
     boolean playerSetGamemode(UUID uuid, String gameMode) {
-        return ctx.commandExecute("gamemode " + gameMode + " " + uuid).successCount() > 0;
+        // /gamemode is a void setter (successCount=0 on a no-op such as setting the
+        // current gamemode); use commandOk.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "gamemode " + gameMode + " " + AdapterContext.playerSelector(uuid)));
     }
 
     boolean playerKick(UUID uuid, String reason) {
@@ -119,8 +143,13 @@ final class PlayerOps {
     }
 
     boolean playerSendActionbar(UUID uuid, String message) {
-        String cmd = "title " + uuid + " actionbar " + AdapterContext.asJsonText(message);
-        return ctx.commandExecute(cmd).successCount() > 0;
+        // /title ... actionbar is a void setter.
+        String cmd =
+                "title "
+                        + AdapterContext.playerSelector(uuid)
+                        + " actionbar "
+                        + AdapterContext.asJsonText(message);
+        return AdapterContext.commandOk(ctx.commandExecute(cmd));
     }
 
     boolean playerSendTitle(
@@ -130,67 +159,98 @@ final class PlayerOps {
             int fadeInTicks,
             int stayTicks,
             int fadeOutTicks) {
+        // Each subcommand here is a void setter; commandOk rather than successCount > 0.
+        String sel = AdapterContext.playerSelector(uuid);
         boolean ok = true;
         if (fadeInTicks > 0 || stayTicks > 0 || fadeOutTicks > 0) {
             ok &=
-                    ctx.commandExecute(
+                    AdapterContext.commandOk(
+                            ctx.commandExecute(
                                     "title "
-                                            + uuid
+                                            + sel
                                             + " times "
                                             + fadeInTicks
                                             + " "
                                             + stayTicks
                                             + " "
-                                            + fadeOutTicks)
-                                    .successCount() > 0;
+                                            + fadeOutTicks));
         }
         if (subtitle != null && !subtitle.isBlank()) {
             ok &=
-                    ctx.commandExecute("title " + uuid + " subtitle " + AdapterContext.asJsonText(subtitle))
-                                    .successCount() > 0;
+                    AdapterContext.commandOk(
+                            ctx.commandExecute(
+                                    "title "
+                                            + sel
+                                            + " subtitle "
+                                            + AdapterContext.asJsonText(subtitle)));
         }
-        ok &= ctx.commandExecute("title " + uuid + " title " + AdapterContext.asJsonText(title)).successCount() > 0;
+        ok &=
+                AdapterContext.commandOk(
+                        ctx.commandExecute(
+                                "title " + sel + " title " + AdapterContext.asJsonText(title)));
         return ok;
     }
 
     boolean playerPlaySound(UUID uuid, String soundId, float volume, float pitch) {
-        return ctx.commandExecute(
+        // /playsound is a void setter (successCount=0 if nobody is in range to hear it).
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
                         "execute as "
-                                + uuid
+                                + AdapterContext.entitySelector(uuid)
                                 + " at @s run playsound "
                                 + soundId
                                 + " master @s ~ ~ ~ "
                                 + volume
                                 + " "
-                                + pitch)
-                .successCount() > 0;
+                                + pitch));
     }
 
     boolean playerSetSpawnPoint(UUID uuid, String dimensionId, Vec3i position) {
-        return ctx.commandExecute(
+        // /spawnpoint is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
                         "execute in "
                                 + dimensionId
                                 + " run spawnpoint "
-                                + uuid
+                                + AdapterContext.playerSelector(uuid)
                                 + " "
                                 + position.x()
                                 + " "
                                 + position.y()
                                 + " "
-                                + position.z())
-                .successCount() > 0;
+                                + position.z()));
     }
 
     boolean playerGrantXp(UUID uuid, int amount) {
-        return ctx.commandExecute("xp add " + uuid + " " + amount + " points").successCount() > 0;
+        // /xp add is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "xp add "
+                                + AdapterContext.playerSelector(uuid)
+                                + " "
+                                + amount
+                                + " points"));
     }
 
     boolean playerSetXpLevel(UUID uuid, int level) {
-        return ctx.commandExecute("xp set " + uuid + " " + level + " levels").successCount() > 0;
+        // /xp set is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "xp set "
+                                + AdapterContext.playerSelector(uuid)
+                                + " "
+                                + level
+                                + " levels"));
     }
 
     boolean playerSetCamera(UUID viewer, UUID target) {
-        return ctx.commandExecute("execute as " + viewer + " run spectate " + target).successCount() > 0;
+        // /spectate is a void setter.
+        return AdapterContext.commandOk(
+                ctx.commandExecute(
+                        "execute as "
+                                + AdapterContext.entitySelector(viewer)
+                                + " run spectate "
+                                + AdapterContext.entitySelector(target)));
     }
 
     // =====================================================================

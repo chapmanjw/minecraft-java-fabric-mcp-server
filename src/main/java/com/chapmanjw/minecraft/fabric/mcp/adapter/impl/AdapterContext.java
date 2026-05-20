@@ -153,12 +153,27 @@ final class AdapterContext {
                         .registryAccess()
                         .lookupOrThrow(Registries.ITEM)
                         .getKey(s.getItem());
-        // Components → SNBT (best-effort; uses the encoder's default form).
-        String components = s.getComponents().isEmpty() ? null : s.getComponents().toString();
+        // Component map → list of component identifier strings. We intentionally drop
+        // the values: at runtime, individual Component.toString() implementations leak
+        // intermediary class names (e.g. `class_10711[...]`) and balloon the payload to
+        // tens of kilobytes per stack. Callers that need component values should fetch
+        // SNBT via entity_get_nbt or block_entity_get_nbt.
+        List<String> componentKeys = new ArrayList<>();
+        var componentRegistry =
+                requireServer()
+                        .registryAccess()
+                        .lookupOrThrow(net.minecraft.core.registries.Registries.DATA_COMPONENT_TYPE);
+        for (var ct : s.getComponents().keySet()) {
+            Identifier ctId = componentRegistry.getKey(ct);
+            if (ctId != null) {
+                componentKeys.add(ctId.toString());
+            }
+        }
+        componentKeys.sort(String::compareTo);
         return new ItemStackInfo(
                 id == null ? "minecraft:air" : id.toString(),
                 s.getCount(),
-                components,
+                componentKeys,
                 s.getMaxStackSize(),
                 s.getMaxDamage(),
                 s.getDamageValue());
@@ -171,6 +186,37 @@ final class AdapterContext {
         return "{\"text\":\""
                 + (s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\""))
                 + "\"}";
+    }
+
+    /**
+     * Wrap a UUID as a vanilla {@code @a[uuid=...]} (for players) selector that
+     * brigadier will accept. Vanilla commands like /give, /gamemode, /effect,
+     * /title, /xp, /spawnpoint, /clear, /advancement, /spectate, /bossbar players
+     * reject a bare UUID string -- they need a selector wrapper.
+     */
+    static String playerSelector(java.util.UUID uuid) {
+        return "@a[uuid=" + uuid.toString() + "]";
+    }
+
+    /**
+     * Wrap a UUID as a vanilla {@code @e[uuid=...]} selector for any entity.
+     * Brigadier rejects bare UUID strings for entity-target arguments on most
+     * vanilla commands.
+     */
+    static String entitySelector(java.util.UUID uuid) {
+        return "@e[uuid=" + uuid.toString() + ",limit=1]";
+    }
+
+    /**
+     * Whether a vanilla void/mutation command (one that returns {@code successCount=0}
+     * even on success -- e.g. {@code /bossbar set ... players}, {@code /gamemode},
+     * {@code /effect clear}, {@code /worldborder set}) actually completed. True iff
+     * there was no parse error. For commands that return a meaningful
+     * {@code successCount} (e.g. {@code /give}, {@code /summon}, {@code /clone},
+     * {@code /fill}), callers should still check {@code r.successCount() > 0}.
+     */
+    static boolean commandOk(CommandResult r) {
+        return r.error() == null;
     }
 
     Entity findEntityAcrossLevels(java.util.UUID uuid) {
