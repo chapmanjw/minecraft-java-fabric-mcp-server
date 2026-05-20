@@ -28,13 +28,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 21 (toolchain target for 1.21.x)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - name: Set up JDK 25 (toolchain target for 26.1.x; daemon runs on it too)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
