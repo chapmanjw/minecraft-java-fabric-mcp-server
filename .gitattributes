@@ -1,0 +1,37 @@
+# Force LF line endings everywhere — keeps gradlew, source, and configs consistent
+# across Windows, macOS, and Linux contributors.
+* text=auto eol=lf
+
+# Java
+*.java       text eol=lf
+*.kt         text eol=lf
+*.kts        text eol=lf
+
+# Build
+*.gradle     text eol=lf
+*.properties text eol=lf
+*.toml       text eol=lf
+
+# Web / data
+*.json       text eol=lf
+*.md         text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.xml        text eol=lf
+
+# Shell
+*.sh         text eol=lf
+gradlew      text eol=lf
+
+# Windows-only batch scripts keep CRLF
+*.bat        text eol=crlf
+*.cmd        text eol=crlf
+
+# Binary
+*.jar        binary
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.nbt        binary
+*.zip        binary

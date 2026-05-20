@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- Test classes commonly need long descriptive method names and method-local
+         literals; the value of the readability rules is much lower in test code.
+         The path patterns match both the original `src/test/...` tree and the
+         Stonecutter-generated copy under `build/generated/stonecutter/test/...`. -->
+    <suppress files=".*[\\/](src|generated[\\/]stonecutter)[\\/]test[\\/].*" checks="MagicNumber"/>
+    <suppress files=".*[\\/](src|generated[\\/]stonecutter)[\\/]test[\\/].*" checks="MethodName"/>
+    <suppress files=".*[\\/](src|generated[\\/]stonecutter)[\\/]test[\\/].*" checks="LineLength"/>
+    <suppress files=".*[\\/](src|generated[\\/]stonecutter)[\\/]test[\\/].*" checks="VisibilityModifier"/>
+
+    <!-- DTO classes mirror MCP wire schemas; their fields are intentionally public/final
+         records or POJOs with permissive visibility. -->
+    <suppress files=".*[\\/]protocol[\\/]dto[\\/].*" checks="VisibilityModifier"/>
+
+    <!-- Tool implementations declare large JSON Schema strings as constants; long lines
+         in those literals are fine. -->
+    <suppress files=".*[\\/]tools[\\/].*Tool\.java" checks="LineLength"/>
+
+    <!-- HTTP status codes, default-port constants, timeout-millisecond literals, and
+         rate-limit window literals appear inline in the transport / config / protocol
+         layers. Naming each one a constant would be busywork that obscures the actual
+         control flow; we accept the magic numbers here. -->
+    <suppress files=".*[\\/]config[\\/]Config(Loader)?\.java" checks="MagicNumber"/>
+    <suppress files=".*[\\/]protocol[\\/]McpHttpRoute\.java" checks="MagicNumber"/>
+    <suppress files=".*[\\/]protocol[\\/]error[\\/].*\.java" checks="MagicNumber"/>
+    <suppress files=".*[\\/]transport[\\/].*\.java" checks="MagicNumber"/>
+    <suppress files=".*[\\/]transport[\\/].*\.java" checks="UnusedImports"/>
+
+    <!-- Adapter implementation glues Brigadier dispatch, registry lookups, NBT
+         coordinates and event buffer arithmetic together; the inline literals
+         (event buffer caps, tick conversions, server health thresholds) all map
+         to documented Minecraft / MCP conventions. -->
+    <suppress files=".*[\\/]adapter[\\/]impl[\\/]MinecraftAdapterImpl\.java" checks="MagicNumber"/>
+    <suppress files=".*[\\/]adapter[\\/]impl[\\/]MinecraftAdapterImpl\.java" checks="LineLength"/>
+    <suppress files=".*[\\/]adapter[\\/]impl[\\/]MinecraftAdapterImpl\.java" checks="WhitespaceAround"/>
+
+    <!-- Tool implementations reference event-buffer / tick-time literals that mirror
+         the constants documented in tools.md; they are also too small to warrant
+         their own constants files. -->
+    <suppress files=".*[\\/]tools[\\/].*\.java" checks="MagicNumber"/>
+    <suppress files=".*[\\/]tools[\\/].*\.java" checks="LineLength"/>
+</suppressions>

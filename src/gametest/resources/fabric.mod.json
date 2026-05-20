@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "minecraft_fabric_mcp_gametest",
+  "version": "${mod_version}",
+  "name": "MCP Server Gametests",
+  "description": "Gametest harness for the MCP server mod.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "com.chapmanjw.minecraft.fabric.mcp.gametest.ServerToolsGameTest",
+      "com.chapmanjw.minecraft.fabric.mcp.gametest.LevelToolsGameTest",
+      "com.chapmanjw.minecraft.fabric.mcp.gametest.BlockToolsGameTest",
+      "com.chapmanjw.minecraft.fabric.mcp.gametest.EntityToolsGameTest",
+      "com.chapmanjw.minecraft.fabric.mcp.gametest.ScoreboardToolsGameTest",
+      "com.chapmanjw.minecraft.fabric.mcp.gametest.EventsToolsGameTest"
+    ]
+  },
+  "depends": {
+    "fabric-gametest-api-v1": "*",
+    "minecraft_fabric_mcp": "*"
+  }
+}

@@ -1,0 +1,63 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Spotless + Checkstyle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up JDK 25 (required for the 26.1.x targets the daemon configures)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Spotless check (every Stonecutter target)
+        run: ./gradlew ":1.21.11:spotlessCheck" ":26.1.1:spotlessCheck" ":26.1.2:spotlessCheck"
+
+      - name: Checkstyle (every Stonecutter target)
+        run: |
+          ./gradlew ":1.21.11:checkstyleMain" ":1.21.11:checkstyleTest" \
+            ":26.1.1:checkstyleMain" ":26.1.1:checkstyleTest" \
+            ":26.1.2:checkstyleMain" ":26.1.2:checkstyleTest"
+
+      - name: Verify required files exist
+        run: |
+          test -f LICENSE
+          test -f README.md
+          test -f CHANGELOG.md
+          test -f CONTRIBUTING.md
+          test -f SECURITY.md
+          test -f docs/architecture.md
+          test -f docs/tools.md
+          test -f docs/security.md
+          test -f docs/configuration.md
+          test -f docs/version-compatibility.md
+          test -f mod-build.gradle.kts
+          test -f versions/1.21.11/build.gradle.kts
+          test -f versions/26.1.1/build.gradle.kts
+          test -f versions/26.1.2/build.gradle.kts

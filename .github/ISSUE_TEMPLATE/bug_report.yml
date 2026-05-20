@@ -1,0 +1,45 @@
+name: Bug report
+description: A defect in the mod's behavior — wrong tool output, listener crash, etc.
+labels: [bug]
+body:
+  - type: input
+    id: minecraft
+    attributes:
+      label: Minecraft version
+      placeholder: "26.1.2"
+    validations:
+      required: true
+  - type: input
+    id: mod_version
+    attributes:
+      label: Mod version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      placeholder: "Claude Desktop 1.4 / Cursor / curl / …"
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Be precise — tool name + arguments, expected vs actual.
+      placeholder: |
+        1. Call tool `X` with arguments `{...}`
+        2. Expected `Y`
+        3. Got `Z`
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Minecraft log
+      description: Paste the relevant `[minecraft_fabric_mcp]` lines (and any stack trace). Strip bearer tokens.
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Other mods loaded, system info, etc.

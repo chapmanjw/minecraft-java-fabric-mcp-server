@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build all versions
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (toolchain target for 1.21.x)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up JDK 25 (toolchain target for 26.1.x; daemon runs on it too)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build every Minecraft target
+        run: ./gradlew chiseledBuild --stacktrace
+
+      - name: Run all tests (fan-out across every version)
+        run: ./gradlew chiseledTest --stacktrace
+
+      - name: Compute tag
+        id: compute
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect release artifacts
+        run: |
+          mkdir -p release
+          find versions -type f -name "minecraft-fabric-mcp-*.jar" \
+            ! -name "*-dev.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" \
+            -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-jars
+          path: release/
+
+  github-release:
+    name: Publish to GitHub Releases
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-jars
+          path: release/
+
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          tag="${{ needs.build.outputs.tag }}"
+          version="${tag#v}"
+          # Pull the section between '## [<version>]' and the next '## ['.
+          notes=$(awk -v v="## [$version]" '
+            $0 ~ v {flag=1; next}
+            flag && /^## \[/ {exit}
+            flag {print}
+          ' CHANGELOG.md)
+          {
+            echo "notes<<__EOF__"
+            echo "$notes"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          name: ${{ needs.build.outputs.tag }}
+          body: ${{ steps.changelog.outputs.notes }}
+          draft: false
+          prerelease: ${{ contains(needs.build.outputs.tag, '-rc') || contains(needs.build.outputs.tag, '-alpha') || contains(needs.build.outputs.tag, '-beta') }}
+          files: release/*.jar
+
+  # ----------------------------------------------------------------------
+  # Modrinth and CurseForge publication are stretch goals — turned on once
+  # the org has provisioned MODRINTH_TOKEN and CURSEFORGE_TOKEN secrets.
+  # The blocks below are intentionally commented so the workflow runs
+  # without secrets and so adding the secrets later is a one-line change.
+  # ----------------------------------------------------------------------
+  #
+  # modrinth:
+  #   name: Publish to Modrinth
+  #   needs: [build, github-release]
+  #   runs-on: ubuntu-latest
+  #   if: ${{ secrets.MODRINTH_TOKEN != '' }}
+  #   steps:
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: release-jars
+  #         path: release/
+  #     - name: Upload to Modrinth
+  #       uses: modrinth/code@v1
+  #       with:
+  #         token: ${{ secrets.MODRINTH_TOKEN }}
+  #         project-id: mcp-server          # update once the project is registered
+  #         version-type: release
+  #         files: release/*.jar
+  #
+  # curseforge:
+  #   name: Publish to CurseForge
+  #   needs: [build, github-release]
+  #   runs-on: ubuntu-latest
+  #   if: ${{ secrets.CURSEFORGE_TOKEN != '' }}
+  #   steps:
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: release-jars
+  #         path: release/
+  #     - name: Upload to CurseForge
+  #       uses: itsmeow/curseforge-upload@v3
+  #       with:
+  #         token: ${{ secrets.CURSEFORGE_TOKEN }}
+  #         project_id: 000000              # update once the project is registered
+  #         file_path: release/*.jar
+  #         release_type: release
+  #         game_endpoint: minecraft
