@@ -448,8 +448,14 @@ info "mods/ at $GAME_DIR/mods"
 step "Caching fabric-installer-$INSTALLER_VER.jar"
 INSTALLER_JAR=$(cache_fabric_installer "$INSTALLER_VER")
 
-step "Installing Fabric Loader for Minecraft $VERSION into $GAME_DIR"
-VERSION_ID=$(invoke_fabric_installer "$JAVA_BIN" "$INSTALLER_JAR" "$VERSION" "$LOADER" "$GAME_DIR")
+step "Installing Fabric Loader for Minecraft $VERSION into $MC_ROOT"
+# IMPORTANT: install the version under the launcher's WORK directory ($MC_ROOT),
+# not the per-profile $GAME_DIR. The Minecraft Launcher resolves every profile's
+# `lastVersionId` against the work dir's versions/ folder; a version dropped
+# only under a gameDir gets filtered out as "unplayable" and the profile
+# silently disappears from the dropdown. The gameDir is only for worlds / mods
+# / options / saves per profile.
+VERSION_ID=$(invoke_fabric_installer "$JAVA_BIN" "$INSTALLER_JAR" "$VERSION" "$LOADER" "$MC_ROOT")
 
 # --- 4) Cache + copy Fabric API ---------------------------------------------
 
