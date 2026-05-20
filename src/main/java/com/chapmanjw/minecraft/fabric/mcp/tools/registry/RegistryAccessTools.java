@@ -154,12 +154,21 @@ public final class RegistryAccessTools {
 
     @McpTool(
             name = "recipe_list",
-            description = "Lists every registered recipe of a given type (or all types when omitted).",
+            description = "Lists every registered recipe of a given type (or all types when omitted). "
+                    + "Valid type ids come from the minecraft:recipe_type registry: minecraft:crafting "
+                    + "(covers both shaped and shapeless -- Mojang collapsed those into one type in 1.21+), "
+                    + "minecraft:smelting, minecraft:blasting, minecraft:smoking, minecraft:campfire_cooking, "
+                    + "minecraft:stonecutting, minecraft:smithing_transform, minecraft:smithing_trim.",
             requiredFabricModules = {"fabric-recipe-api-v1"})
     public static final class RecipeList extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
-                        .optional("type", Schemas.string("Recipe type id (e.g. minecraft:crafting_shaped)"))
+                        .optional(
+                                "type",
+                                Schemas.string(
+                                        "Recipe type id from minecraft:recipe_type "
+                                                + "(e.g. minecraft:crafting, minecraft:smelting). Shaped vs "
+                                                + "shapeless are both minecraft:crafting in 1.21+."))
                         .build();
 
         public RecipeList() {
