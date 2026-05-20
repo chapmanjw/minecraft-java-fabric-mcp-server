@@ -102,8 +102,11 @@ function Find-Java {
         'C:\Program Files\Amazon Corretto\jdk25.0.3_9'
     ) | Where-Object { $_ } | Select-Object -Unique
 
-    foreach ($home in $candidates) {
-        $javaExe = Join-Path $home 'bin\java.exe'
+    # NOTE: avoid $home as a loop variable -- it shadows the built-in read-only
+    # $HOME automatic variable in PowerShell and fails with
+    # "Cannot overwrite variable HOME because it is read-only or constant".
+    foreach ($jdkHome in $candidates) {
+        $javaExe = Join-Path $jdkHome 'bin\java.exe'
         if (Test-Path -LiteralPath $javaExe) {
             return $javaExe
         }
