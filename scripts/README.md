@@ -59,9 +59,9 @@ Requirements:
 Requirements:
 - bash 4+ (recent macOS ships 3.2 by default; install GNU bash via `brew install bash` if your shebang dispatch picks the system bash and dies).
 - `curl` (universal).
-- `jq` — install with `brew install jq` (macOS) or `sudo apt-get install jq` / `sudo dnf install jq` (Linux). The script checks for these up front and prints the install command.
-- A Java runtime — discovered via `JAVA_HOME`, `/usr/libexec/java_home -v 21|25` (macOS), `/usr/lib/jvm/temurin-*` (Linux), or `PATH`.
-- Minecraft Launcher — auto-detected at `/Applications/Minecraft.app` (macOS) or `minecraft-launcher` on `PATH` (Linux). If absent, the script prints next steps without launching.
+- `jq` -- install with `brew install jq` (macOS) or `sudo apt-get install jq` / `sudo dnf install jq` (Linux). The script checks for these up front and prints the install command.
+- A Java runtime -- discovered via `JAVA_HOME`, `/usr/libexec/java_home -v 21|25` (macOS), `/usr/lib/jvm/temurin-*` (Linux), or `PATH`.
+- Minecraft Launcher -- auto-detected at `/Applications/Minecraft.app` (macOS) or `minecraft-launcher` on `PATH` (Linux). If absent, the script prints next steps without launching.
 
 ### After the script finishes
 
@@ -72,7 +72,7 @@ Requirements:
 
 ### Cleanup
 
-Delete the isolated game directory and remove the `mcp-test-<version>` entry from the user's `launcher_profiles.json`. The script is idempotent — re-running with the same version reuses or refreshes everything.
+Delete the isolated game directory and remove the `mcp-test-<version>` entry from the user's `launcher_profiles.json`. The script is idempotent -- re-running with the same version reuses or refreshes everything.
 
 ### Caching
 
@@ -81,4 +81,4 @@ Downloaded artifacts (Fabric installer jar, Fabric API jar) cache under `scripts
 ### Limitations
 
 - The launcher itself still requires manual sign-in and a click on Play.
-- For Minecraft 26.1.x: Fabric Loader's beta channel must include a build that supports the target. The script queries Fabric meta at runtime, so it picks up new builds automatically — but if Modrinth has no compatible Fabric API release yet, the script will fail at the API-download step. In that case try a 1.21.x target instead, or pass a known-working `--loader` / `-LoaderVersion`.
+- For Minecraft 26.1.x: Fabric Loader's beta channel must include a build that supports the target. The script queries Fabric meta at runtime, so it picks up new builds automatically -- but if Modrinth has no compatible Fabric API release yet, the script will fail at the API-download step. In that case try a 1.21.x target instead, or pass a known-working `--loader` / `-LoaderVersion`.

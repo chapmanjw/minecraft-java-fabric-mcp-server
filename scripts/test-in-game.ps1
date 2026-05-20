@@ -10,7 +10,7 @@
     existing worlds/mods, registers a launcher profile, and (with -Launch)
     opens the Minecraft Launcher with that profile preselected.
 
-    Designed to be re-run safely — second run with the same -Version reuses
+    Designed to be re-run safely -- second run with the same -Version reuses
     the cached Fabric installer + Fabric API jar and only rebuilds the mod
     if Gradle says it's out of date.
 
@@ -91,8 +91,8 @@ function Ensure-Dir {
 }
 
 function Find-Java {
-    # Toolchain JDK: 1.21.x → JDK 21, 26.1.x → JDK 25. We only need a working
-    # JRE to RUN the Fabric installer jar — the heavy compilation toolchain
+    # Toolchain JDK: 1.21.x -> JDK 21, 26.1.x -> JDK 25. We only need a working
+    # JRE to RUN the Fabric installer jar -- the heavy compilation toolchain
     # lookup happens inside Gradle separately.
     $candidates = @(
         $env:JAVA_HOME,
@@ -194,7 +194,7 @@ function Invoke-FabricInstaller {
     )
     Write-Info "running fabric-installer (mc=$McVersion loader=$Loader dir=$Dir)"
     # `client` subcommand installs into <dir>/versions/fabric-loader-<loader>-<mc>/
-    # `-noprofile` skips creating a launcher profile — we register our own profile
+    # `-noprofile` skips creating a launcher profile -- we register our own profile
     #              afterwards so we can point gameDir at the isolated install.
     $args = @(
         '-jar', $InstallerJar,
@@ -284,7 +284,7 @@ function Find-MinecraftLauncher {
 
 Write-Host ""
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host " Minecraft Fabric MCP Server — local test setup"                -ForegroundColor Cyan
+Write-Host " Minecraft Fabric MCP Server -- local test setup"                -ForegroundColor Cyan
 Write-Host " Minecraft target: $Version"                                     -ForegroundColor Cyan
 Write-Host " Game dir:         $GameDir"                                     -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
@@ -397,7 +397,7 @@ Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  1. Open Minecraft Launcher."
 Write-Host "  2. Pick the profile '$profileName' from the dropdown (top-left)."
-Write-Host "  3. Click Play. The integrated server boots on world load — that's"
+Write-Host "  3. Click Play. The integrated server boots on world load -- that's"
 Write-Host "     when the MCP HTTP listener binds (default http://127.0.0.1:8765)."
 Write-Host "  4. Verify with: curl http://127.0.0.1:8765/healthz"
 Write-Host ""

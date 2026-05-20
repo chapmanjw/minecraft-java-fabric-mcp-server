@@ -6,11 +6,11 @@
 # game directory, registers a Minecraft Launcher profile, and (with --launch)
 # opens the launcher with that profile pre-selected.
 #
-# Designed to be re-run safely — caches the Fabric installer + Fabric API
+# Designed to be re-run safely -- caches the Fabric installer + Fabric API
 # jar under scripts/.cache/ and reuses them on subsequent runs.
 #
 # Requirements: bash 4+, curl, jq, java (any JRE 17+ that can run the Fabric
-# installer jar — the build itself uses the JDK 21 / 25 toolchain Gradle picks).
+# installer jar -- the build itself uses the JDK 21 / 25 toolchain Gradle picks).
 
 set -euo pipefail
 
