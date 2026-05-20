@@ -63,3 +63,6 @@ test-output/
 *.bak
 *.rej
 *~
+
+# Local-test cache (test-in-game.ps1 downloads Fabric installer + API here)
+scripts/.cache/
