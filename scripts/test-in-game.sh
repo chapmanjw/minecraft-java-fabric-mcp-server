@@ -336,7 +336,14 @@ invoke_fabric_installer() {
 
 sync_launcher_profile() {
     local profiles_path="$1" name="$2" version_id="$3" game_dir="$4"
-    local profile_key="mcp-test-$VERSION"
+    # The modern Minecraft Launcher silently drops any profile whose key isn't a
+    # 32-char hex GUID -- a slug like "mcp-test-1.21.11" gets discarded on the
+    # next time the launcher writes the file, and our profile disappears from
+    # the dropdown. Derive a stable hex GUID from the slug via MD5 so re-runs
+    # write to the same profile entry.
+    local slug="mcp-test-$VERSION"
+    local profile_key
+    profile_key=$(printf '%s' "$slug" | md5sum | awk '{print $1}')
 
     if [[ ! -f "$profiles_path" ]]; then
         info "launcher_profiles.json not found at $profiles_path; creating a minimal one"

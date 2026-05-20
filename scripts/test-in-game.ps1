@@ -304,7 +304,19 @@ function Sync-LauncherProfile {
         $json | Add-Member -NotePropertyName profiles -NotePropertyValue (New-Object PSObject) -Force
     }
     $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.000Z")
-    $profileKey = "mcp-test-$Version"
+    # The modern Minecraft Launcher silently drops any profile whose key isn't a
+    # 32-char hex GUID -- a slug like "mcp-test-1.21.11" gets discarded on the
+    # next time the launcher writes the file, and our profile disappears from
+    # the dropdown. Derive a stable hex GUID from the slug via MD5 so re-runs
+    # write to the same profile entry.
+    $slug = "mcp-test-$Version"
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    try {
+        $hashBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($slug))
+    } finally {
+        $md5.Dispose()
+    }
+    $profileKey = ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
     $profile = [PSCustomObject]@{
         name           = $Name
         type           = 'custom'
