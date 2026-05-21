@@ -29,6 +29,34 @@ disclosure window can be arranged.
 - Vulnerabilities in MCP clients (Claude Desktop, Cursor, `mcp-remote`) — report those to those
   projects.
 
+## Build-time vs. shipped dependencies
+
+This mod is a single Fabric jar. The only third-party code it bundles is **Jackson** (shaded via
+Loom's `include` configuration); everything else it needs at runtime — Minecraft, the Fabric Loader,
+the Fabric API, SLF4J — is provided by the host game, not packaged by us.
+
+The Gradle build, by contrast, pulls in a large transitive tree through the **Fabric Loom** and
+**Stonecutter** plugins: netty, lz4-java, jgit, plexus-utils, log4j-core, commons-* and friends.
+These are **build-time tooling only** — they run on a maintainer's machine or in CI to download,
+remap, and package Minecraft. **None of them are bundled in or reachable from the published mod
+jar** (you can confirm: `unzip -l minecraft-fabric-mcp-*.jar` lists no `netty`, `log4j`, `jgit`,
+etc.).
+
+Consequently:
+
+- We treat dependency vulnerabilities by **where the code runs**, not merely by their presence in
+  the dependency graph. A CVE in a build-classpath transitive dependency of a Gradle plugin is **not
+  a vulnerability in the shipped mod** and poses no risk to anyone running it. We dismiss such
+  Dependabot alerts as *tolerable risk* with a note pointing here, and we rely on upstream plugin
+  releases to advance those transitives.
+- Dependabot version updates are scoped to **direct** dependencies (see
+  [`.github/dependabot.yml`](.github/dependabot.yml)) — the deps we actually declare and pin.
+- A CVE in a dependency we **ship** (today: Jackson) or that runs as part of the **mod's runtime**
+  is in scope and handled per the response targets below.
+
+If you believe a build-time dependency is actually reachable from the published artifact (e.g. we
+started shading something new), that's a real finding — please report it.
+
 ## Severity ratings
 
 We follow [CVSS 3.1](https://www.first.org/cvss/calculator/3.1) for severity. Typical mappings:

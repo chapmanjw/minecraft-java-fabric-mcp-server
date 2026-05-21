@@ -10,6 +10,15 @@ updates:
     labels:
       - dependencies
       - gradle
+    # Only surface updates for dependencies we declare directly (the mod's
+    # compile/runtime/test deps and the plugin versions we pin). The deep
+    # transitive dependencies of the Fabric Loom and Stonecutter Gradle
+    # plugins (netty, lz4, jgit, plexus, log4j, commons-*, …) are build-time
+    # tooling that never ships in the mod jar; we don't pin them and can't
+    # bump them without forcing plugin internals, so leaving them out of
+    # scope keeps the alert/PR stream actionable. See SECURITY.md.
+    allow:
+      - dependency-type: "direct"
 
   - package-ecosystem: github-actions
     directory: "/"
