@@ -85,11 +85,10 @@ final class PlayerOps {
 
     boolean playerGiveItem(UUID uuid, ItemSpec item) {
         // /give returns a meaningful successCount (1 per stack delivered) so we keep the
-        // > 0 check; the UUID needs the @a[uuid=...] wrapper because vanilla rejects a
-        // bare UUID for the player-target argument.
+        // > 0 check.
         return ctx.commandExecute(
                                 "give "
-                                        + AdapterContext.playerSelector(uuid)
+                                        + ctx.playerCommandTarget(uuid)
                                         + " "
                                         + item.id()
                                         + " "
@@ -101,7 +100,7 @@ final class PlayerOps {
         // /item replace entity returns a meaningful successCount.
         return ctx.commandExecute(
                         "item replace entity "
-                                + AdapterContext.entitySelector(uuid)
+                                + AdapterContext.entityCommandTarget(uuid)
                                 + " container."
                                 + slot
                                 + " with minecraft:air")
@@ -113,7 +112,7 @@ final class PlayerOps {
         // items it reports 0, but the command still succeeded -- prefer commandOk so the
         // empty-inventory case isn't reported as failure.
         return AdapterContext.commandOk(
-                ctx.commandExecute("clear " + AdapterContext.playerSelector(uuid)));
+                ctx.commandExecute("clear " + ctx.playerCommandTarget(uuid)));
     }
 
     boolean playerSetGamemode(UUID uuid, String gameMode) {
@@ -121,7 +120,7 @@ final class PlayerOps {
         // current gamemode); use commandOk.
         return AdapterContext.commandOk(
                 ctx.commandExecute(
-                        "gamemode " + gameMode + " " + AdapterContext.playerSelector(uuid)));
+                        "gamemode " + gameMode + " " + ctx.playerCommandTarget(uuid)));
     }
 
     boolean playerKick(UUID uuid, String reason) {
@@ -146,7 +145,7 @@ final class PlayerOps {
         // /title ... actionbar is a void setter.
         String cmd =
                 "title "
-                        + AdapterContext.playerSelector(uuid)
+                        + ctx.playerCommandTarget(uuid)
                         + " actionbar "
                         + AdapterContext.asJsonText(message);
         return AdapterContext.commandOk(ctx.commandExecute(cmd));
@@ -160,7 +159,7 @@ final class PlayerOps {
             int stayTicks,
             int fadeOutTicks) {
         // Each subcommand here is a void setter; commandOk rather than successCount > 0.
-        String sel = AdapterContext.playerSelector(uuid);
+        String sel = ctx.playerCommandTarget(uuid);
         boolean ok = true;
         if (fadeInTicks > 0 || stayTicks > 0 || fadeOutTicks > 0) {
             ok &=
@@ -196,7 +195,7 @@ final class PlayerOps {
         return AdapterContext.commandOk(
                 ctx.commandExecute(
                         "execute as "
-                                + AdapterContext.entitySelector(uuid)
+                                + AdapterContext.entityCommandTarget(uuid)
                                 + " at @s run playsound "
                                 + soundId
                                 + " master @s ~ ~ ~ "
@@ -212,7 +211,7 @@ final class PlayerOps {
                         "execute in "
                                 + dimensionId
                                 + " run spawnpoint "
-                                + AdapterContext.playerSelector(uuid)
+                                + ctx.playerCommandTarget(uuid)
                                 + " "
                                 + position.x()
                                 + " "
@@ -226,7 +225,7 @@ final class PlayerOps {
         return AdapterContext.commandOk(
                 ctx.commandExecute(
                         "xp add "
-                                + AdapterContext.playerSelector(uuid)
+                                + ctx.playerCommandTarget(uuid)
                                 + " "
                                 + amount
                                 + " points"));
@@ -237,7 +236,7 @@ final class PlayerOps {
         return AdapterContext.commandOk(
                 ctx.commandExecute(
                         "xp set "
-                                + AdapterContext.playerSelector(uuid)
+                                + ctx.playerCommandTarget(uuid)
                                 + " "
                                 + level
                                 + " levels"));
@@ -248,9 +247,9 @@ final class PlayerOps {
         return AdapterContext.commandOk(
                 ctx.commandExecute(
                         "execute as "
-                                + AdapterContext.entitySelector(viewer)
+                                + AdapterContext.entityCommandTarget(viewer)
                                 + " run spectate "
-                                + AdapterContext.entitySelector(target)));
+                                + AdapterContext.entityCommandTarget(target)));
     }
 
     // =====================================================================

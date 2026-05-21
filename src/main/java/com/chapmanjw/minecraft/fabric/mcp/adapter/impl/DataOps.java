@@ -17,10 +17,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.commands.arguments.NbtPathArgument;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.storage.CommandStorage;
 
 import com.chapmanjw.minecraft.fabric.mcp.adapter.AdapterException;
-import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.CommandResult;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.DatapackInfo;
 
 /**
@@ -49,22 +51,43 @@ final class DataOps {
     }
 
     Optional<String> dataStorageGet(String namespace, String path) {
-        String safePath = path == null ? "" : path.trim();
-        // `/data get storage <id> <path>` requires a path; if none was passed, fall back
-        // to dumping the whole storage tree.
-        String cmd = safePath.isEmpty()
-                ? "data get storage " + storageId(namespace)
-                : "data get storage " + storageId(namespace) + " " + safePath;
-        CommandResult r = ctx.commandExecute(cmd);
-        if (r.error() != null) {
+        // `/data get` reports the value via a feedback message, but commandExecute uses
+        // withSuppressedOutput() so output is empty. Read CommandStorage directly.
+        CommandStorage storage = ctx.requireServer().getCommandStorage();
+        Identifier id = Identifier.tryParse(storageId(namespace));
+        if (id == null) {
             return Optional.empty();
         }
-        // `/data get` reports the value via the command source as a feedback message
-        // even when successCount==1; collect the first output line.
-        if (!r.output().isEmpty()) {
-            return Optional.of(r.output().get(0));
+        CompoundTag root = storage.get(id);
+        if (root == null) {
+            return Optional.empty();
         }
-        return r.successCount() > 0 ? Optional.of("") : Optional.empty();
+        String safePath = path == null ? "" : path.trim();
+        if (safePath.isEmpty()) {
+            return root.isEmpty() ? Optional.empty() : Optional.of(root.toString());
+        }
+        try {
+            NbtPathArgument.NbtPath nbtPath =
+                    new NbtPathArgument().parse(new com.mojang.brigadier.StringReader(safePath));
+            List<Tag> tags = nbtPath.get(root);
+            if (tags.isEmpty()) {
+                return Optional.empty();
+            }
+            if (tags.size() == 1) {
+                return Optional.of(tags.get(0).toString());
+            }
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < tags.size(); i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                sb.append(tags.get(i));
+            }
+            sb.append(']');
+            return Optional.of(sb.toString());
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     boolean dataStorageSet(String namespace, String path, String snbt, boolean merge) {

@@ -189,22 +189,29 @@ final class AdapterContext {
     }
 
     /**
-     * Wrap a UUID as a vanilla {@code @a[uuid=...]} (for players) selector that
-     * brigadier will accept. Vanilla commands like /give, /gamemode, /effect,
-     * /title, /xp, /spawnpoint, /clear, /advancement, /spectate, /bossbar players
-     * reject a bare UUID string -- they need a selector wrapper.
+     * Resolve a player UUID to its current online name for use as a command target.
+     * Vanilla's {@code EntityArgument.players()} (used by /give, /gamemode, /effect,
+     * /title, /xp, /spawnpoint, /clear, /advancement, /spectate, /bossbar players)
+     * accepts a player NAME or an @-selector, but not a bare UUID -- and vanilla has
+     * no {@code uuid=} selector option in 1.21.x. Throws if the player isn't online.
      */
-    static String playerSelector(java.util.UUID uuid) {
-        return "@a[uuid=" + uuid.toString() + "]";
+    String playerCommandTarget(java.util.UUID uuid) {
+        var player = requireServer().getPlayerList().getPlayer(uuid);
+        if (player == null) {
+            throw new AdapterException("Player not online: " + uuid);
+        }
+        return player.getName().getString();
     }
 
     /**
-     * Wrap a UUID as a vanilla {@code @e[uuid=...]} selector for any entity.
-     * Brigadier rejects bare UUID strings for entity-target arguments on most
-     * vanilla commands.
+     * Return a UUID literal suitable as a vanilla entity-target argument.
+     * Vanilla's {@code EntityArgument.entities()} (used by /tag, /effect, /tp, /data,
+     * /execute as, /kill, /attribute, /ride, /damage, etc.) accepts a bare UUID
+     * string. There is no {@code uuid=} selector option in 1.21.x, so prior wrapping
+     * as {@code @e[uuid=...]} produced parse errors.
      */
-    static String entitySelector(java.util.UUID uuid) {
-        return "@e[uuid=" + uuid.toString() + ",limit=1]";
+    static String entityCommandTarget(java.util.UUID uuid) {
+        return uuid.toString();
     }
 
     /**

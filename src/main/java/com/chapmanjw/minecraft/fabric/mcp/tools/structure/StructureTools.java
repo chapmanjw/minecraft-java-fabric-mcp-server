@@ -25,11 +25,36 @@ public final class StructureTools {
     private StructureTools() {}
 
     private static Vec3i readVec3i(JsonNode n) {
-        return new Vec3i(n.get("x").asInt(), n.get("y").asInt(), n.get("z").asInt());
+        if (n == null || !n.isObject()) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "position must be an object with int x, y, z");
+        }
+        JsonNode x = n.get("x");
+        JsonNode y = n.get("y");
+        JsonNode z = n.get("z");
+        if (x == null || y == null || z == null) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "position requires int x, y, z");
+        }
+        return new Vec3i(x.asInt(), y.asInt(), z.asInt());
     }
 
     private static BoundingBox readBox(JsonNode n) {
-        return BoundingBox.of(readVec3i(n.get("from")), readVec3i(n.get("to")));
+        if (n == null || !n.isObject()) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "box must be an object with from/to corners");
+        }
+        JsonNode from = n.get("from");
+        JsonNode to = n.get("to");
+        if (from == null || to == null) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "box requires from and to corners, each {x,y,z}");
+        }
+        return BoundingBox.of(readVec3i(from), readVec3i(to));
     }
 
     @McpTool(

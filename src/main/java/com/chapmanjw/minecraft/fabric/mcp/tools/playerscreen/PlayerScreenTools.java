@@ -30,7 +30,11 @@ public final class PlayerScreenTools {
     @McpTool(
             name = "player_screen_open_menu",
             description =
-                    "Opens a standard menu screen for the player (anvil, crafting_table, etc.).",
+                    "Opens a standard menu screen for the player. menu_type must be one of: "
+                            + "anvil, crafting_table, enchanting_table, loom, stonecutter, "
+                            + "grindstone, smithing_table, cartography_table. Use the short "
+                            + "name, not the registry id (e.g. crafting_table, NOT "
+                            + "minecraft:crafting).",
             requiredFabricModules = {"fabric-screen-handler-api-v1"})
     public static final class OpenMenu extends BaseTool {
         private static final JsonNode SCHEMA =

@@ -443,13 +443,43 @@ final class WorldOps {
     // =====================================================================
 
     boolean structureSaveFromWorld(String name, String dimensionId, BoundingBox box, boolean includeEntities) {
-        String entFlag = includeEntities ? "true" : "false";
-        return ctx.commandExecute(
-                        String.format(
-                                Locale.ROOT,
-                                "execute in %s run place template %s %d %d %d none none 1.0 0 %s",
-                                dimensionId, name, box.x1(), box.y1(), box.z1(), entFlag))
-                .successCount() > 0;
+        // The /structure save command was removed in 1.20.5 -- /place template only LOADS.
+        // Capture world contents via StructureTemplate.fillFromWorld and persist via direct
+        // NBT IO. StructureTemplateManager.save() returned false for our in-memory templates
+        // (it expects a different lifecycle), so write the file ourselves -- matches what
+        // structureFileWrite already does.
+        try {
+            ServerLevel level = ctx.requireLevel(dimensionId);
+            StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
+            Identifier id = AdapterContext.parseIdentifier(name);
+            StructureTemplate template = mgr.getOrCreate(id);
+            BlockPos origin = new BlockPos(box.x1(), box.y1(), box.z1());
+            net.minecraft.core.Vec3i size =
+                    new net.minecraft.core.Vec3i(
+                            box.x2() - box.x1() + 1,
+                            box.y2() - box.y1() + 1,
+                            box.z2() - box.z1() + 1);
+            // The 5th param is a List of blocks to ignore -- vanilla streams it
+            // unconditionally, so null NPEs. Pass an empty list to capture everything.
+            template.fillFromWorld(level, origin, size, includeEntities, java.util.Collections.emptyList());
+            template.setAuthor("minecraft-fabric-mcp");
+            net.minecraft.nbt.CompoundTag tag =
+                    template.save(new net.minecraft.nbt.CompoundTag());
+            Path file = structureFilePath(id);
+            if (file == null) {
+                return false;
+            }
+            Files.createDirectories(file.getParent());
+            try (java.io.OutputStream os = Files.newOutputStream(file)) {
+                net.minecraft.nbt.NbtIo.writeCompressed(tag, os);
+            }
+            return true;
+        } catch (AdapterException ae) {
+            return false;
+        } catch (Exception e) {
+            AdapterContext.LOGGER.warn("structureSaveFromWorld failed for " + name, e);
+            return false;
+        }
     }
 
     boolean structureLoadToWorld(
@@ -609,13 +639,17 @@ final class WorldOps {
     }
 
     boolean structureFileDelete(String name) {
+        // Idempotent: returns true whether the file was deleted now or was already gone.
+        // structure_delete also removes the on-disk copy, so a subsequent file_delete
+        // would otherwise look like a failure.
         Identifier id = AdapterContext.parseIdentifier(name);
         Path file = structureFilePath(id);
         if (file == null) {
             return false;
         }
         try {
-            return Files.deleteIfExists(file);
+            Files.deleteIfExists(file);
+            return true;
         } catch (java.io.IOException e) {
             return false;
         }

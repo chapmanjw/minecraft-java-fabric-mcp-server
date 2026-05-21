@@ -63,21 +63,103 @@ See [docs/architecture.md](docs/architecture.md) for the detailed layering ratio
 
 ## Quick start (single-player, default config)
 
-The default configuration binds to `127.0.0.1:8765`, **no token required**, with strict Host and
-Origin validation that defends against DNS-rebinding and CSRF.
+End-to-end: a clean machine to "Claude making it rain chicken jockeys in your village." The default
+configuration binds to `127.0.0.1:8765`, **no token required**, with strict Host/Origin validation
+that defends against DNS-rebinding and CSRF.
 
-1. Install Fabric Loader via the [official installer](https://fabricmc.net/use/installer/).
-2. Download the matching mod jar from this repo's [Releases](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases) — pick the file whose name ends in `+<your-MC-version>`.
-3. Download [Fabric API](https://modrinth.com/mod/fabric-api) at the same Minecraft version.
-4. Drop both jars into your `.minecraft/mods/` folder (created by the Fabric installer).
-5. Launch the Fabric profile in the Minecraft launcher and open any world.
-6. Configure Claude Desktop to talk to `http://localhost:8765/mcp` (see [Claude Desktop integration](docs/claude-desktop-integration.md)).
+### 1. Install Java
 
-That's it. No token, no firewall changes, no environment variables.
+The mod runs inside the Minecraft launcher's JVM, which the launcher itself manages — for typical
+single-player play you don't need to install Java separately. (You only need a system JDK if you're
+[building from source](#building-from-source).)
 
-The full single-player walkthrough lives in [docs/setup-singleplayer.md](docs/setup-singleplayer.md).
-For a dedicated server (and LAN/internet access with bearer auth), see
-[docs/setup-dedicated-server.md](docs/setup-dedicated-server.md).
+### 2. Install Minecraft Java Edition and the launcher
+
+If you don't already have it, get the Minecraft Launcher from
+[minecraft.net/download](https://www.minecraft.net/download). Launch it once, sign in, and load a
+vanilla world to confirm the install works.
+
+### 3. Install Fabric Loader
+
+Download the [Fabric Loader installer](https://fabricmc.net/use/installer/) and run it. Pick the
+Minecraft version you want (one of **1.21.11**, **26.1.1**, or **26.1.2** — the versions this mod
+ships jars for) and click Install. The installer registers a new "fabric-loader-…" profile in the
+Minecraft Launcher and creates a `mods/` folder under your game directory.
+
+### 4. Download the mod and Fabric API
+
+- This mod: grab the matching jar from the
+  [Releases page](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases). Pick the
+  file whose suffix matches your Minecraft version, e.g. `minecraft-fabric-mcp-0.1.0+1.21.11.jar`.
+- [Fabric API](https://modrinth.com/mod/fabric-api): pick the version that matches the same MC
+  version.
+
+### 5. Install both jars
+
+Drop both jars into your Minecraft `mods/` directory:
+
+- **Windows**: `%APPDATA%\.minecraft\mods\`
+- **macOS**: `~/Library/Application Support/minecraft/mods/`
+- **Linux**: `~/.minecraft/mods/`
+
+### 6. Launch the Fabric profile
+
+Open the Minecraft Launcher, select the **fabric-loader-…** profile from the dropdown, click Play,
+and open any world (existing or new). When the world finishes loading, the integrated server starts
+and the MCP listener binds to `http://127.0.0.1:8765/mcp`. Confirm with:
+
+```sh
+curl http://127.0.0.1:8765/healthz
+# → {"ok":true,...}
+```
+
+### 7. Connect an MCP client
+
+The mod speaks MCP over **Streamable HTTP**. Connect from whichever client you use.
+
+**Claude Code (CLI):** run once from a terminal —
+
+```sh
+claude mcp add --transport http minecraft-java http://localhost:8765/mcp
+```
+
+**Claude Desktop:** edit the desktop app's `claude_desktop_config.json` (Settings → Developer → Edit
+Config) and add:
+
+```json
+{
+  "mcpServers": {
+    "minecraft-java": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:8765/mcp"]
+    }
+  }
+}
+```
+
+Then restart Claude Desktop. For authenticated / remote setups, see
+[docs/claude-desktop-integration.md](docs/claude-desktop-integration.md) and
+[docs/cursor-integration.md](docs/cursor-integration.md).
+
+### 8. Try it
+
+In any Claude session with the MCP server connected, ask it natural-language things like:
+
+- _"Who's online in Minecraft right now?"_ → `player_list_online`
+- _"Give me 64 diamonds."_ → `player_give_item`
+- _"Set it to noon and clear the weather."_ → `level_set_time`, `level_set_weather`
+- _"Build me a 5×5×5 box of glass at my feet."_ → `block_fill_region`
+- _"Find a nearby village."_ → `entity_query` for `minecraft:villager`
+- _"Make it rain chicken jockeys over the village."_ → 20× `command_execute` with
+  `summon minecraft:chicken <x> <y> <z> {Passengers:[{id:"minecraft:zombie",IsBaby:1b}]}` plus
+  `level_set_weather` set to `thunder` for atmosphere.
+
+That last one is the canonical smoke test. If chickens with baby zombie riders rain down from the
+sky over your village while a thunderstorm rolls in, the whole stack is wired up correctly.
+
+The full single-player walkthrough (with dedicated-server and LAN variants) lives in
+[docs/setup-singleplayer.md](docs/setup-singleplayer.md). For a dedicated server with bearer auth
+and remote access, see [docs/setup-dedicated-server.md](docs/setup-dedicated-server.md).
 
 ## Configuration
 

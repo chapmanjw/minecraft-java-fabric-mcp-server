@@ -6,9 +6,12 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.bossevents.CustomBossEvent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.BossEvent;
 
 import com.chapmanjw.minecraft.fabric.mcp.adapter.AdapterException;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.AdvancementProgressInfo;
@@ -41,7 +44,7 @@ final class GameplayOps {
 
     CommandResult commandExecuteAs(String command, UUID actor) {
         return ctx.commandExecute(
-                "execute as " + AdapterContext.entitySelector(actor) + " run " + command);
+                "execute as " + AdapterContext.entityCommandTarget(actor) + " run " + command);
     }
 
     // =====================================================================
@@ -211,7 +214,7 @@ final class GameplayOps {
         return Optional.of(toBossbarInfo(ev));
     }
 
-    private static BossbarInfo toBossbarInfo(net.minecraft.server.bossevents.CustomBossEvent ev) {
+    private static BossbarInfo toBossbarInfo(CustomBossEvent ev) {
         List<UUID> uuids = new ArrayList<>();
         for (ServerPlayer p : ev.getPlayers()) {
             uuids.add(p.getUUID());
@@ -225,15 +228,22 @@ final class GameplayOps {
         int value = ev.getValue();
         int max = ev.getMax();
         *///?}
+        // ev.getName() returns the raw Component; getDisplayName() wraps in [brackets]
+        // for chat display, which is not what callers want.
         return new BossbarInfo(
                 id,
-                ev.getDisplayName().getString(),
+                ev.getName().getString(),
                 value,
                 max,
                 ev.getColor().getName(),
                 ev.getOverlay().getName(),
                 ev.isVisible(),
                 uuids);
+    }
+
+    private CustomBossEvent requireBossbar(String id) {
+        Identifier rl = AdapterContext.parseIdentifier(id);
+        return ctx.requireServer().getCustomBossEvents().get(rl);
     }
 
     boolean bossbarAdd(String id, String name) {
@@ -248,53 +258,87 @@ final class GameplayOps {
         return AdapterContext.commandOk(ctx.commandExecute("bossbar remove " + id));
     }
 
+    // Vanilla /bossbar set ... reports "Nothing changed" as an ERROR (not a silent
+    // no-op) when the value already matches -- commandOk would then return false for
+    // an idempotent set. Use the direct CustomBossEvent API for the mutators below.
+
     boolean bossbarSetValue(String id, int value) {
-        // /bossbar set value is a void setter.
-        return AdapterContext.commandOk(
-                ctx.commandExecute("bossbar set " + id + " value " + value));
+        CustomBossEvent ev = requireBossbar(id);
+        if (ev == null) {
+            return false;
+        }
+        ev.setValue(value);
+        return true;
     }
 
     boolean bossbarSetMax(String id, int max) {
-        // /bossbar set max is a void setter.
-        return AdapterContext.commandOk(
-                ctx.commandExecute("bossbar set " + id + " max " + max));
+        CustomBossEvent ev = requireBossbar(id);
+        if (ev == null) {
+            return false;
+        }
+        ev.setMax(max);
+        return true;
     }
 
     boolean bossbarSetName(String id, String name) {
-        // /bossbar set name is a void setter.
-        return AdapterContext.commandOk(
-                ctx.commandExecute(
-                        "bossbar set " + id + " name " + AdapterContext.asJsonText(name)));
+        CustomBossEvent ev = requireBossbar(id);
+        if (ev == null) {
+            return false;
+        }
+        ev.setName(Component.literal(name == null ? "" : name));
+        return true;
     }
 
     boolean bossbarSetColor(String id, String color) {
-        // /bossbar set color is a void setter.
-        return AdapterContext.commandOk(
-                ctx.commandExecute("bossbar set " + id + " color " + color));
+        CustomBossEvent ev = requireBossbar(id);
+        if (ev == null) {
+            return false;
+        }
+        String want = color == null ? "" : color.toLowerCase(Locale.ROOT);
+        for (BossEvent.BossBarColor c : BossEvent.BossBarColor.values()) {
+            if (c.getName().equalsIgnoreCase(want) || c.name().equalsIgnoreCase(want)) {
+                ev.setColor(c);
+                return true;
+            }
+        }
+        return false;
     }
 
     boolean bossbarSetStyle(String id, String style) {
-        // /bossbar set style is a void setter.
-        return AdapterContext.commandOk(
-                ctx.commandExecute("bossbar set " + id + " style " + style));
+        CustomBossEvent ev = requireBossbar(id);
+        if (ev == null) {
+            return false;
+        }
+        String want = style == null ? "" : style.toLowerCase(Locale.ROOT);
+        for (BossEvent.BossBarOverlay o : BossEvent.BossBarOverlay.values()) {
+            if (o.getName().equalsIgnoreCase(want) || o.name().equalsIgnoreCase(want)) {
+                ev.setOverlay(o);
+                return true;
+            }
+        }
+        return false;
     }
 
     boolean bossbarSetVisible(String id, boolean visible) {
-        // /bossbar set visible is a void setter.
-        return AdapterContext.commandOk(
-                ctx.commandExecute("bossbar set " + id + " visible " + visible));
+        CustomBossEvent ev = requireBossbar(id);
+        if (ev == null) {
+            return false;
+        }
+        ev.setVisible(visible);
+        return true;
     }
 
     boolean bossbarSetPlayers(String id, List<UUID> playerUuids) {
-        // /bossbar set players is a void setter. Each UUID must be wrapped in an
-        // @a[uuid=...] selector -- vanilla rejects bare UUIDs for player-target args.
+        // /bossbar set players is a void setter. Each UUID is resolved to its current
+        // online player name -- vanilla 1.21.x has no uuid= selector option and
+        // EntityArgument.players() rejects bare UUIDs.
         if (playerUuids == null || playerUuids.isEmpty()) {
             return AdapterContext.commandOk(
                     ctx.commandExecute("bossbar set " + id + " players"));
         }
         StringBuilder sb = new StringBuilder("bossbar set ").append(id).append(" players");
         for (UUID u : playerUuids) {
-            sb.append(' ').append(AdapterContext.playerSelector(u));
+            sb.append(' ').append(ctx.playerCommandTarget(u));
         }
         return AdapterContext.commandOk(ctx.commandExecute(sb.toString()));
     }
@@ -317,10 +361,11 @@ final class GameplayOps {
             String verb, UUID playerUuid, String advancementId, String mode, String criterion) {
         String m = mode == null || mode.isBlank() ? "only" : mode.toLowerCase(Locale.ROOT);
         StringBuilder sb = new StringBuilder("advancement ");
-        // Vanilla rejects a bare UUID; wrap as @a[uuid=...].
+        // EntityArgument.players() takes a name or selector -- resolve the UUID to
+        // the player's current online name.
         sb.append(verb)
                 .append(' ')
-                .append(AdapterContext.playerSelector(playerUuid))
+                .append(ctx.playerCommandTarget(playerUuid))
                 .append(' ')
                 .append(m)
                 .append(' ')
@@ -396,7 +441,7 @@ final class GameplayOps {
             return AdapterContext.commandOk(
                     ctx.commandExecute(
                             "execute as "
-                                    + AdapterContext.entitySelector(asEntity)
+                                    + AdapterContext.entityCommandTarget(asEntity)
                                     + " run function "
                                     + functionId));
         }
@@ -474,12 +519,12 @@ final class GameplayOps {
     // =====================================================================
 
     boolean itemModifyEntitySlot(UUID entityUuid, String slot, String modifierId) {
-        // /item modify entity is a void setter; bare UUIDs are rejected so wrap in
-        // an @e[uuid=...] selector.
+        // /item modify entity is a void setter; EntityArgument.entity() accepts a
+        // bare UUID literal directly.
         return AdapterContext.commandOk(
                 ctx.commandExecute(
                         "item modify entity "
-                                + AdapterContext.entitySelector(entityUuid)
+                                + AdapterContext.entityCommandTarget(entityUuid)
                                 + " "
                                 + slot
                                 + " "

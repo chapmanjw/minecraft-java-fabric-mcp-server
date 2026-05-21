@@ -90,6 +90,24 @@ function Ensure-Dir {
     }
 }
 
+function Write-Utf8NoBom {
+    # Set-Content -Encoding UTF8 on PowerShell 5.1 writes a UTF-8 BOM at byte 0.
+    # The Microsoft Store Minecraft Launcher's JSON parser rejects BOM-prefixed
+    # JSON outright (verified via launcher_log.txt:
+    #   "Error: Unable to parse contents of launcher_profiles.json to json"
+    #   "Warning: Unable to load profiles file"
+    # ), then resets launcher_profiles.json to factory defaults -- which
+    # silently wipes every custom profile, including the MCP one this script
+    # just registered. Always serialize launcher state via the .NET API with
+    # an explicit BOM-less UTF8Encoding instead of Set-Content.
+    param(
+        [Parameter(Mandatory)] [string]$Path,
+        [Parameter(Mandatory)] [string]$Content
+    )
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
 function Find-Java {
     # Toolchain JDK: 1.21.x -> JDK 21, 26.1.x -> JDK 25. We only need a working
     # JRE to RUN the Fabric installer jar -- the heavy compilation toolchain
@@ -297,7 +315,7 @@ function Sync-LauncherProfile {
             settings = @{ enableSnapshots = $false; keepLauncherOpen = $true }
             version  = 3
         }
-        $minimal | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $ProfilesPath -Encoding UTF8
+        Write-Utf8NoBom -Path $ProfilesPath -Content ($minimal | ConvertTo-Json -Depth 12)
     }
     $json = Get-Content -LiteralPath $ProfilesPath -Raw | ConvertFrom-Json
     if (-not $json.profiles) {
@@ -337,21 +355,49 @@ function Sync-LauncherProfile {
         $json.profiles | Add-Member -NotePropertyName $profileKey -NotePropertyValue $profile -Force
         Write-Info "added launcher profile '$profileKey'"
     }
-    $json | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $ProfilesPath -Encoding UTF8
+    Write-Utf8NoBom -Path $ProfilesPath -Content ($json | ConvertTo-Json -Depth 12)
+
+    # Read back and verify the file is parseable and our profile survives a
+    # round-trip. If the launcher later launches and STILL drops the profile,
+    # at least we'll know we wrote a valid file.
+    $verify = $null
+    try {
+        $verify = Get-Content -LiteralPath $ProfilesPath -Raw | ConvertFrom-Json
+    } catch {
+        throw "Wrote launcher_profiles.json but it now fails to parse: $_"
+    }
+    if (-not ($verify.profiles.PSObject.Properties[$profileKey])) {
+        throw "Wrote launcher_profiles.json but our profile key '$profileKey' is missing after re-read. Possible BOM / encoding regression."
+    }
     return $profileKey
 }
 
 function Find-MinecraftLauncher {
-    $candidates = @(
+    # NB: the Microsoft Store package for Java Edition is
+    # Microsoft.4297127D64EC6_* and its launcher EXE is named Minecraft.exe
+    # (NOT MinecraftLauncher.exe -- that was the legacy standalone installer).
+    # Bedrock Edition's package is Microsoft.MinecraftUWP_* and registers the
+    # `minecraft://` URL handler, which is why falling back to that scheme
+    # silently opens Bedrock on machines that have both editions installed.
+    # Always resolve a concrete Java EXE path; never use a URL fallback.
+    #
+    # Resolution order:
+    #   1. Get-AppxPackage for the Java Store package -- the only reliable way
+    #      under WindowsApps's restrictive ACLs (Get-ChildItem with a wildcard
+    #      silently returns nothing there).
+    #   2. Legacy standalone installer paths.
+    $pkg = Get-AppxPackage -Name 'Microsoft.4297127D64EC6' -ErrorAction SilentlyContinue
+    if ($pkg) {
+        $exe = Join-Path $pkg.InstallLocation 'Minecraft.exe'
+        if (Test-Path -LiteralPath $exe) { return $exe }
+    }
+    $legacy = @(
         "$env:ProgramFiles\Minecraft Launcher\MinecraftLauncher.exe",
         "${env:ProgramFiles(x86)}\Minecraft Launcher\MinecraftLauncher.exe",
-        "$env:LOCALAPPDATA\Programs\Minecraft Launcher\MinecraftLauncher.exe",
-        # Newer launcher branding
-        "$env:ProgramFiles\WindowsApps\Microsoft.4297127D64EC6_*\MinecraftLauncher.exe"
+        "$env:LOCALAPPDATA\Programs\Minecraft Launcher\MinecraftLauncher.exe"
     )
-    foreach ($pat in $candidates) {
-        $found = Get-ChildItem -Path $pat -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($found) { return $found.FullName }
+    foreach ($p in $legacy) {
+        if (Test-Path -LiteralPath $p) { return $p }
     }
     return $null
 }
@@ -486,7 +532,7 @@ profile from $MinecraftRoot\launcher_profiles.json.
 
 Generated: $((Get-Date).ToUniversalTime().ToString('o'))
 "@
-Set-Content -LiteralPath $readme -Value $readmeBody -Encoding UTF8
+Write-Utf8NoBom -Path $readme -Content $readmeBody
 
 # --- 6) Register launcher profile -------------------------------------------
 
@@ -525,7 +571,13 @@ if ($Launch) {
         Write-Info $launcher
         Start-Process -FilePath $launcher
     } else {
-        Write-Info "Couldn't locate the launcher .exe; using shell association"
-        Start-Process "minecraft://"  # Generally registered by the launcher install
+        # Don't fall back to `Start-Process minecraft://` -- that URL scheme is
+        # registered by Bedrock Edition too, and Windows routes it to Bedrock
+        # whenever Bedrock is installed alongside Java. Surface the failure
+        # so the user can open the Java launcher manually instead.
+        Write-Host ""
+        Write-Host "WARN: Couldn't locate the Java Edition launcher .exe." -ForegroundColor Yellow
+        Write-Host "      Skipping -Launch. Open the Minecraft Java Launcher manually," -ForegroundColor Yellow
+        Write-Host "      pick the profile '$profileName', and click Play." -ForegroundColor Yellow
     }
 }

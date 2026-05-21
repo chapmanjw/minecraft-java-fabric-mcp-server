@@ -183,7 +183,9 @@ public final class RegistryAccessTools {
                         .optional(
                                 "limit",
                                 Schemas.integerBetween(
-                                        "Maximum number of recipes to return (default 200, max 2000).",
+                                        "Maximum number of recipes to return (default 50, max 2000). "
+                                                + "Each entry carries id+type+group+ingredients[], "
+                                                + "so the previous default of 200 overflowed token caps.",
                                         1,
                                         2000))
                         .build();
@@ -202,7 +204,7 @@ public final class RegistryAccessTools {
             var r = reader(arguments);
             String type = r.optString("type", null);
             int offset = Math.max(0, r.optInt("offset", 0));
-            int limit = Math.max(1, Math.min(2000, r.optInt("limit", 200)));
+            int limit = Math.max(1, Math.min(2000, r.optInt("limit", 50)));
             return onMainThread(
                     context,
                     ignored -> {

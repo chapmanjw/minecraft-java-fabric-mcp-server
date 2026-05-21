@@ -27,11 +27,36 @@ public final class BlockTools {
     private BlockTools() {}
 
     private static Vec3i readVec3i(JsonNode node) {
-        return new Vec3i(node.get("x").asInt(), node.get("y").asInt(), node.get("z").asInt());
+        if (node == null || !node.isObject()) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "position must be an object with int x, y, z");
+        }
+        JsonNode x = node.get("x");
+        JsonNode y = node.get("y");
+        JsonNode z = node.get("z");
+        if (x == null || y == null || z == null) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "position requires int x, y, z");
+        }
+        return new Vec3i(x.asInt(), y.asInt(), z.asInt());
     }
 
     private static BoundingBox readBox(JsonNode node) {
-        return BoundingBox.of(readVec3i(node.get("from")), readVec3i(node.get("to")));
+        if (node == null || !node.isObject()) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "box must be an object with from/to corners");
+        }
+        JsonNode from = node.get("from");
+        JsonNode to = node.get("to");
+        if (from == null || to == null) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "box requires from and to corners, each {x,y,z}");
+        }
+        return BoundingBox.of(readVec3i(from), readVec3i(to));
     }
 
     private static BlockSpec readBlockSpec(JsonNode node) {

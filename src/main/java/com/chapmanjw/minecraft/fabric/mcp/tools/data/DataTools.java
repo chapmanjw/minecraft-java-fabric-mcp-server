@@ -150,7 +150,9 @@ public final class DataTools {
 
     @McpTool(
             name = "data_attachment_get",
-            description = "Reads a Fabric data-attachment value on an entity, chunk, or world.",
+            description = "Reads a Fabric data-attachment value on an entity, chunk, or world. "
+                    + "The attachment type (namespace:key) must already be registered by a loaded "
+                    + "mod via AttachmentRegistry -- this tool does not create new attachment types.",
             requiredFabricModules = {"fabric-data-attachment-api-v1"})
     public static final class AttachmentGet extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -191,7 +193,10 @@ public final class DataTools {
 
     @McpTool(
             name = "data_attachment_set",
-            description = "Writes a Fabric data-attachment value.",
+            description = "Writes a Fabric data-attachment value. The attachment type "
+                    + "(namespace:key) must already be registered by a loaded mod via "
+                    + "AttachmentRegistry -- this tool does not create new attachment types, "
+                    + "and a set against an unregistered type returns \"failed\".",
             requiredFabricModules = {"fabric-data-attachment-api-v1"})
     public static final class AttachmentSet extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -231,7 +236,9 @@ public final class DataTools {
 
     @McpTool(
             name = "data_attachment_remove",
-            description = "Removes a Fabric data-attachment value.",
+            description = "Removes a Fabric data-attachment value. The attachment type "
+                    + "(namespace:key) must already be registered by a loaded mod via "
+                    + "AttachmentRegistry.",
             requiredFabricModules = {"fabric-data-attachment-api-v1"})
     public static final class AttachmentRemove extends BaseTool {
         private static final JsonNode SCHEMA =

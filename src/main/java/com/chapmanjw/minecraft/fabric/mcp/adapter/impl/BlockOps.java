@@ -274,16 +274,16 @@ final class BlockOps {
     }
 
     boolean blockEntityClearInventory(String dimensionId, Vec3i position) {
-        // No vanilla command for "clear block inventory" directly; use loot replace block with nothing.
-        CommandResult r =
-                ctx.commandExecute(
-                        String.format(
-                                Locale.ROOT,
-                                "execute in %s run loot replace block %d %d %d slot.container 0 26 from value []",
-                                dimensionId,
-                                position.x(),
-                                position.y(),
-                                position.z()));
-        return r.successCount() > 0;
+        // /loot replace block ... has no "value []" source; iterate slots directly.
+        ServerLevel level = ctx.requireLevel(dimensionId);
+        var be = level.getBlockEntity(new BlockPos(position.x(), position.y(), position.z()));
+        if (!(be instanceof net.minecraft.world.Container c)) {
+            return false;
+        }
+        for (int i = 0; i < c.getContainerSize(); i++) {
+            c.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+        }
+        c.setChanged();
+        return true;
     }
 }

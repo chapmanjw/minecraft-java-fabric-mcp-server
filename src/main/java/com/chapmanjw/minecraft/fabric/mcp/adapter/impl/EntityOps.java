@@ -170,7 +170,7 @@ final class EntityOps {
         // value (e.g. already at the target Motion vector) isn't reported as failure.
         CommandResult r =
                 ctx.commandExecute(
-                        "data merge entity " + AdapterContext.entitySelector(uuid) + " " + snbt);
+                        "data merge entity " + AdapterContext.entityCommandTarget(uuid) + " " + snbt);
         return AdapterContext.commandOk(r);
     }
 
@@ -189,7 +189,7 @@ final class EntityOps {
                         Locale.ROOT,
                         "execute in %s run tp %s %f %f %f%s",
                         dimensionId,
-                        AdapterContext.entitySelector(uuid),
+                        AdapterContext.entityCommandTarget(uuid),
                         position.x(),
                         position.y(),
                         position.z(),
@@ -204,7 +204,7 @@ final class EntityOps {
         // returns 0 with no error, which is still "the command ran". Keep > 0.
         return ctx.commandExecute(
                                 "damage "
-                                        + AdapterContext.entitySelector(uuid)
+                                        + AdapterContext.entityCommandTarget(uuid)
                                         + " "
                                         + amount
                                         + " "
@@ -219,7 +219,7 @@ final class EntityOps {
                         String.format(
                                 Locale.ROOT,
                                 "data merge entity %s {Motion:[%fd,%fd,%fd]}",
-                                AdapterContext.entitySelector(uuid),
+                                AdapterContext.entityCommandTarget(uuid),
                                 velocity.x(),
                                 velocity.y(),
                                 velocity.z())));
@@ -247,7 +247,7 @@ final class EntityOps {
         return AdapterContext.commandOk(
                 ctx.commandExecute(
                         "effect give "
-                                + AdapterContext.entitySelector(uuid)
+                                + AdapterContext.entityCommandTarget(uuid)
                                 + " "
                                 + effect
                                 + " "
@@ -262,7 +262,7 @@ final class EntityOps {
         // /effect clear is a void setter.
         return AdapterContext.commandOk(
                 ctx.commandExecute(
-                        "effect clear " + AdapterContext.entitySelector(uuid) + " " + effect));
+                        "effect clear " + AdapterContext.entityCommandTarget(uuid) + " " + effect));
     }
 
     List<StatusEffectInfo> entityGetEffects(UUID uuid) {
@@ -297,7 +297,7 @@ final class EntityOps {
 
     boolean entityKill(UUID uuid) {
         // /kill returns a meaningful successCount (entities killed); keep > 0.
-        return ctx.commandExecute("kill " + AdapterContext.entitySelector(uuid)).successCount() > 0;
+        return ctx.commandExecute("kill " + AdapterContext.entityCommandTarget(uuid)).successCount() > 0;
     }
 
     boolean entityDespawn(UUID uuid) {
@@ -317,14 +317,14 @@ final class EntityOps {
         // present. The latter still means the command succeeded, so use commandOk.
         return AdapterContext.commandOk(
                 ctx.commandExecute(
-                        "tag " + AdapterContext.entitySelector(uuid) + " add " + tag));
+                        "tag " + AdapterContext.entityCommandTarget(uuid) + " add " + tag));
     }
 
     boolean entityRemoveTag(UUID uuid, String tag) {
         // /tag remove returns 0 when the tag wasn't present; that's not a failure.
         return AdapterContext.commandOk(
                 ctx.commandExecute(
-                        "tag " + AdapterContext.entitySelector(uuid) + " remove " + tag));
+                        "tag " + AdapterContext.entityCommandTarget(uuid) + " remove " + tag));
     }
 
     List<String> entityListTags(UUID uuid) {
