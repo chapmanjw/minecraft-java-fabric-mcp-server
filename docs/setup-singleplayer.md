@@ -9,8 +9,10 @@ token configuration and no firewall changes.
 - Java 21 (for the 1.21.11 jar) or Java 25 (for the 26.1.x jars) installed. Match the mod jar
   you download to the right JDK — the Minecraft launcher's Fabric Loader profile uses its own
   bundled JRE so this is only relevant if you launch Minecraft outside the official launcher.
-- Either Claude Desktop or another MCP client (Cursor / Windsurf / any agent that speaks MCP over
-  Streamable HTTP).
+- An MCP client. Claude Code (with the companion
+  [`minecraft-java-fabric-claude-plugin`](https://github.com/chapmanjw/minecraft-java-fabric-claude-plugin))
+  is the smoothest, but Claude Desktop, Cursor, Windsurf, or any agent that speaks MCP over
+  Streamable HTTP works too.
 - About 5 minutes.
 
 ## Step 1 — Install Fabric Loader
@@ -69,7 +71,29 @@ curl http://localhost:8765/healthz
 # → {"status":"ok"}
 ```
 
-## Step 4 — Connect Claude Desktop
+## Step 4 — Connect Claude
+
+Pick the client you use. Claude Code via the plugin is the quickest; Claude Desktop is a few lines
+of JSON.
+
+### Option A — Claude Code, via the plugin (recommended)
+
+The companion
+[`minecraft-java-fabric-claude-plugin`](https://github.com/chapmanjw/minecraft-java-fabric-claude-plugin)
+registers the MCP connection to `http://localhost:8765/mcp` and adds the setup and building
+skills/agents in one shot. From a Claude Code session, run:
+
+```
+/plugin marketplace add chapmanjw/minecraft-java-fabric-claude-plugin
+/plugin install minecraft-java@minecraft-java-claude
+```
+
+Restart Claude Code. The `minecraft-java` MCP tools and the plugin's skills are now available.
+
+(Prefer the raw tools without the plugin? Run
+`claude mcp add --transport http minecraft-java http://localhost:8765/mcp` instead.)
+
+### Option B — Claude Desktop
 
 Edit Claude Desktop's config file:
 
@@ -93,7 +117,7 @@ Save, then quit and reopen Claude Desktop. The MCP tool list appears in the mode
 
 ## Try it
 
-Open a new chat in Claude Desktop, with at least one player loaded in the Minecraft world:
+Open a new chat in your connected client, with at least one player loaded in the Minecraft world:
 
 > "What's the time and weather right now? Set it to clear and to noon."
 

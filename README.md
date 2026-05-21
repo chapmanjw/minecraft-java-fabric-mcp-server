@@ -17,17 +17,24 @@ versions and upgrade them together. Treat the stack as **experimental**.
 
 ## The sibling projects
 
-This is the Java Edition counterpart of an existing Bedrock stack:
+This server pairs with a companion Claude Code plugin, and the whole thing is the Java Edition
+counterpart of an existing Bedrock stack:
 
 | Repository | Edition | Role |
 | --- | --- | --- |
 | **`minecraft-java-fabric-mcp-server`** (this repo) | Java Edition | The MCP server, packaged as a Fabric mod. Loads inside Minecraft and exposes the Java API as MCP tools. |
+| [`minecraft-java-fabric-claude-plugin`](https://github.com/chapmanjw/minecraft-java-fabric-claude-plugin) | Java Edition | The companion Claude Code plugin. Bundles the MCP connection plus setup and builder skills/agents that drive this server. |
 | [`minecraft-bedrock-mcp-server`](https://github.com/chapmanjw/minecraft-bedrock-mcp-server) | Bedrock Edition | The Node/TypeScript MCP server for the Bedrock Dedicated Server. |
 | [`minecraft-bedrock-mcp-behavior-pack`](https://github.com/chapmanjw/minecraft-bedrock-mcp-behavior-pack) | Bedrock Edition | The companion behavior pack for the Bedrock setup. |
 
-The two stacks are independent — installing one has no effect on the other. They share a tone and
-configuration style but expose different (overlapping) tool surfaces because the Java and Bedrock
-Script APIs differ substantially.
+The plugin is optional — any MCP client (Claude Desktop, Cursor, a hand-configured `claude mcp add`)
+can talk to this server directly — but on Claude Code it's the fastest path: it wires up the
+connection and ships the building skills and agents. See
+[Connect an MCP client](#7-connect-an-mcp-client) below.
+
+The Java and Bedrock stacks are independent — installing one has no effect on the other. They share
+a tone and configuration style but expose different (overlapping) tool surfaces because the Java and
+Bedrock Script APIs differ substantially.
 
 ## How it works
 
@@ -117,7 +124,20 @@ curl http://127.0.0.1:8765/healthz
 
 The mod speaks MCP over **Streamable HTTP**. Connect from whichever client you use.
 
-**Claude Code (CLI):** run once from a terminal —
+**Claude Code (CLI) — via the plugin (recommended):** the companion
+[`minecraft-java-fabric-claude-plugin`](https://github.com/chapmanjw/minecraft-java-fabric-claude-plugin)
+wires up the MCP connection *and* installs the setup and building skills/agents. From a Claude Code
+session, run:
+
+```
+/plugin marketplace add chapmanjw/minecraft-java-fabric-claude-plugin
+/plugin install minecraft-java@minecraft-java-claude
+```
+
+Restart Claude Code afterward. See the plugin's README for what each skill and agent does.
+
+**Claude Code (CLI) — manual:** if you'd rather connect the raw tools without the plugin, run once
+from a terminal —
 
 ```sh
 claude mcp add --transport http minecraft-java http://localhost:8765/mcp
