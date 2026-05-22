@@ -166,6 +166,25 @@ public interface MinecraftAdapter {
     List<BlockMatch> blockScanRegion(
             String dimensionId, BoundingBox box, String matchBlockId, int limit);
 
+    /**
+     * One-pass aggregate scan of a box: a material histogram and the non-air
+     * bounding box, computed server-side so no per-block data floods the caller.
+     * The primitive for archaeology (what's up here?) and pre-clear checks
+     * (what would I overwrite?).
+     */
+    ScanSummary blockScanSummary(String dimensionId, BoundingBox box);
+
+    /** Base map-colour RGB (0xRRGGBB) and palette id of the block at a position. */
+    Optional<MapColorInfo> blockGetMapColor(String dimensionId, Vec3i position);
+
+    /**
+     * Render a region to a PNG (bytes) from block map colours — the native
+     * verify-time "eyes". {@code view} is one of iso/side/front/top; {@code step}
+     * downsamples (1 = every block); {@code scale} sets pixels per voxel. Works
+     * headless (no client).
+     */
+    byte[] worldRenderRegion(String dimensionId, BoundingBox box, String view, int step, int scale);
+
     enum FillMode {
         REPLACE,
         DESTROY,
@@ -181,6 +200,21 @@ public interface MinecraftAdapter {
     }
 
     record BlockMatch(Vec3i position, BlockStateInfo state) {}
+
+    /**
+     * Aggregate scan result. {@code histogram} maps block id → count (air
+     * excluded); {@code nonAirMin}/{@code nonAirMax} bound the non-air blocks
+     * (both null when the box is empty).
+     */
+    record ScanSummary(
+            long scannedVolume,
+            long nonAirCount,
+            Map<String, Long> histogram,
+            Vec3i nonAirMin,
+            Vec3i nonAirMax) {}
+
+    /** Base map colour: palette {@code id} and packed {@code rgb} (0xRRGGBB). */
+    record MapColorInfo(int id, int rgb) {}
 
     // =====================================================================
     // BlockEntity

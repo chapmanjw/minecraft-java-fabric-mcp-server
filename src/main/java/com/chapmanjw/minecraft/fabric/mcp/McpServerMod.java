@@ -109,7 +109,7 @@ public final class McpServerMod implements ModInitializer {
             // 4) Protocol + transport
             // -----------------------------------------------------------
             ObjectMapper mapper = new ObjectMapper();
-            ToolContext context = new ToolContext(adapter, executor, eventBus, config, mapper);
+            ToolContext context = new ToolContext(adapter, executor, eventBus, config, mapper, registry);
             McpDispatcher.ServerInfo info =
                     new McpDispatcher.ServerInfo(
                             "minecraft-java-fabric-mcp-server",

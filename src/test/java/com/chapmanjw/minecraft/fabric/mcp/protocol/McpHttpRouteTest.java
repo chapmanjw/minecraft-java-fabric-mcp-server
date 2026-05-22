@@ -36,7 +36,7 @@ class McpHttpRouteTest {
                         "echo", "", "", "", List.of(), "",
                         ToolCategory.GAMEPLAY, false, EchoTool.class),
                 new EchoTool());
-        ToolContext ctx = new ToolContext(null, null, null, null, mapper);
+        ToolContext ctx = new ToolContext(null, null, null, null, mapper, null);
         McpDispatcher dispatcher =
                 new McpDispatcher(
                         registry,

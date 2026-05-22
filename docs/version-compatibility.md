@@ -4,7 +4,7 @@ The mod ships **one jar per supported Minecraft version**, built from a single s
 [Stonecutter](https://stonecutter.kikugie.dev). Each jar is paired with the matching Fabric API
 and Fabric Loader versions; using mismatched dependencies is unsupported.
 
-## Supported build matrix (v0.1.0)
+## Supported build matrix (v0.2.0)
 
 | Minecraft | Fabric Loader | Fabric API           | Mappings        | JDK | Loom plugin ID                  |
 | --------- | ------------- | -------------------- | --------------- | --- | ------------------------------- |
@@ -41,7 +41,7 @@ The three architectural seams are:
    `MinecraftAdapterImpl.java` handles these with Stonecutter `//? if mc_gte_26 { … } //?} else
    { /*…*/ //?}` blocks. Tools that depend on a 26.1+ feature can declare
    `minMinecraftVersion = "26.1.0"` in their `@McpTool`; tools that depend on a removed API
-   declare `maxMinecraftVersion = "1.21.99"`. In practice the v0.1.0 tool surface is identical
+   declare `maxMinecraftVersion = "1.21.99"`. In practice the v0.2.0 tool surface is identical
    across all three targets.
 
 ## How the runtime filter works

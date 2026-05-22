@@ -58,7 +58,7 @@ Your mods folder should look like:
 ```
 mods/
 ├── fabric-api-0.149.1+<version>.jar
-└── minecraft-fabric-mcp-0.1.0+<version>.jar
+└── minecraft-fabric-mcp-0.2.0+<version>.jar
 ```
 
 ## Step 3 — Launch the game with Fabric

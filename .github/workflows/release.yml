@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.compute.outputs.tag }}
+      version: ${{ steps.compute.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,10 +53,13 @@ jobs:
         id: compute
         run: |
           if [ -n "${{ github.event.inputs.tag }}" ]; then
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+            tag="${{ github.event.inputs.tag }}"
           else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            tag="${GITHUB_REF#refs/tags/}"
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # Platform version numbers drop the leading "v" (e.g. v0.2.0 -> 0.2.0).
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
       - name: Collect release artifacts
         run: |
@@ -113,47 +117,52 @@ jobs:
           files: release/*.jar
 
   # ----------------------------------------------------------------------
-  # Modrinth and CurseForge publication are stretch goals — turned on once
-  # the org has provisioned MODRINTH_TOKEN and CURSEFORGE_TOKEN secrets.
-  # The blocks below are intentionally commented so the workflow runs
-  # without secrets and so adding the secrets later is a one-line change.
+  # Modrinth + CurseForge publication.
+  #
+  # The mod ships one jar per Minecraft version, so each jar is published as
+  # its own platform version (matrix over MC version) with the correct game
+  # version and a unique version number (`<modver>+<mcver>`). Kir-Antipov/mc-publish
+  # pushes to both platforms in one step and resolves the fabric-api dependency.
+  #
+  # Required repository secrets (Settings → Secrets and variables → Actions):
+  #   • MODRINTH_TOKEN   — Modrinth PAT with write scope
+  #   • CURSEFORGE_TOKEN — CurseForge API token
+  # The Modrinth project slug (minecraft-java-fabric-mcp-server) and the numeric
+  # CurseForge project id (1550191) are set inline below. mc-publish skips any
+  # platform whose token is empty, so this is safe to run even before both are
+  # provisioned.
   # ----------------------------------------------------------------------
-  #
-  # modrinth:
-  #   name: Publish to Modrinth
-  #   needs: [build, github-release]
-  #   runs-on: ubuntu-latest
-  #   if: ${{ secrets.MODRINTH_TOKEN != '' }}
-  #   steps:
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@v8
-  #       with:
-  #         name: release-jars
-  #         path: release/
-  #     - name: Upload to Modrinth
-  #       uses: modrinth/code@v1
-  #       with:
-  #         token: ${{ secrets.MODRINTH_TOKEN }}
-  #         project-id: mcp-server          # update once the project is registered
-  #         version-type: release
-  #         files: release/*.jar
-  #
-  # curseforge:
-  #   name: Publish to CurseForge
-  #   needs: [build, github-release]
-  #   runs-on: ubuntu-latest
-  #   if: ${{ secrets.CURSEFORGE_TOKEN != '' }}
-  #   steps:
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@v8
-  #       with:
-  #         name: release-jars
-  #         path: release/
-  #     - name: Upload to CurseForge
-  #       uses: itsmeow/curseforge-upload@v3
-  #       with:
-  #         token: ${{ secrets.CURSEFORGE_TOKEN }}
-  #         project_id: 000000              # update once the project is registered
-  #         file_path: release/*.jar
-  #         release_type: release
-  #         game_endpoint: minecraft
+  publish-mods:
+    name: Publish to Modrinth & CurseForge (MC ${{ matrix.mc }})
+    needs: [build, github-release]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mc: ["1.21.11", "26.1.1", "26.1.2"]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: release-jars
+          path: release/
+
+      - name: Publish MC ${{ matrix.mc }}
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          # Modrinth — the project slug works as the id.
+          modrinth-id: minecraft-java-fabric-mcp-server
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          # CurseForge — numeric project id (from the project page sidebar).
+          curseforge-id: "1550191"
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          # One jar for this Minecraft version, published as a distinct version.
+          files: release/minecraft-fabric-mcp-*+${{ matrix.mc }}.jar
+          name: "Minecraft Java MCP Server ${{ needs.build.outputs.tag }} (MC ${{ matrix.mc }})"
+          version: "${{ needs.build.outputs.version }}+${{ matrix.mc }}"
+          version-type: ${{ contains(needs.build.outputs.tag, '-') && 'beta' || 'release' }}
+          loaders: fabric
+          game-versions: ${{ matrix.mc }}
+          dependencies: |
+            fabric-api(required)
+          retry-attempts: 2

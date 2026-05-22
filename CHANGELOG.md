@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-21
+
 ### Removed
 
 - **`AsyncJobRegistry` (and the `jobRegistry` field on `ToolContext`).** Plumbed
@@ -32,6 +34,10 @@ All notable changes to this project will be documented in this file. The format 
   the fabric-api umbrella so this is metadata hygiene — but it lets the
   compatibility filter give accurate diagnostics if a future minimal-Fabric
   install lacks one of them.
+- **`server_get_status` reported `registeredToolCount: -1`.** The adapter has no
+  view of the tool registry, so it returned a sentinel. The `server_get_status`
+  tool now fills the real count from the registry, which is threaded through
+  `ToolContext`.
 
 ### Added
 
@@ -40,6 +46,37 @@ All notable changes to this project will be documented in this file. The format 
   been at full capacity for 10 minutes or longer. Prevents per-client bucket
   growth on long-running servers with many MCP clients. `onEndTick` is no
   longer a documented no-op.
+- **Five builder-facing block tools** for AI-driven construction:
+  - **`block_fill_batch`** — apply many fills in one call (up to 8192); the
+    efficient way to place a generated/voxelized build instead of hundreds of
+    separate requests. Each entry is auto-tiled.
+  - **`block_scan_summary`** — server-side material histogram + non-air bounding
+    box over a box up to 1,048,576, so reconnaissance never floods the client
+    with per-block rows.
+  - **`block_get_map_color`** — a block's base map colour (packed `rgb`,
+    `#RRGGBB` hex, r/g/b, palette id).
+  - **`block_render_region`** — render a region to a PNG (`iso`/`side`/`front`/
+    `top`) from block map colours, **server-side with no client/renderer
+    dependency**; returns an MCP `image` content block. The verify-time "eyes"
+    for representational builds.
+- **`ToolResult.addImage` / `ofImage`** — tool results can now carry MCP
+  `image` content blocks (used by `block_render_region`).
+
+### Changed
+
+- **`block_fill_region` auto-tiles past the 32,768 `/fill` cap.** Vanilla
+  `/fill` silently no-ops above 32,768 blocks; the adapter now splits any fill
+  into ≤32,768 sub-boxes server-side (and decomposes oversized hollow/outline
+  into faces), so large fills place fully and report the true block count.
+
+### Build
+
+- **JVM toolchains auto-provision via the `foojay-resolver-convention` plugin**
+  (`settings.gradle.kts`). `./gradlew build` now fetches a matching JDK (e.g.
+  Java 21 for the 1.21.x node) when none is detected locally, so the
+  multi-version build works on any machine / CI without manual toolchain paths.
+- **Release workflow publishes to Modrinth and CurseForge** (one version per
+  Minecraft target) alongside GitHub Releases, via `Kir-Antipov/mc-publish`.
 
 ### Refactored
 

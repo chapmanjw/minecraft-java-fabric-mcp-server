@@ -114,6 +114,10 @@ public final class ToolRegistration {
                     BlockTools.ReplaceInRegion.class,
                     BlockTools.GetTopY.class,
                     BlockTools.ScanRegion.class,
+                    BlockTools.FillBatch.class,
+                    BlockTools.ScanSummary.class,
+                    BlockTools.GetMapColor.class,
+                    BlockTools.RenderRegion.class,
                     // block entity
                     BlockEntityTools.GetNbt.class,
                     BlockEntityTools.SetNbt.class,

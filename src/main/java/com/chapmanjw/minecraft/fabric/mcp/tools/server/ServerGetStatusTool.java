@@ -1,6 +1,7 @@
 package com.chapmanjw.minecraft.fabric.mcp.tools.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.ServerStatus;
 import com.chapmanjw.minecraft.fabric.mcp.protocol.Schemas;
@@ -34,7 +35,13 @@ public final class ServerGetStatusTool extends BaseTool {
                 context,
                 ignored -> {
                     ServerStatus s = context.adapter().serverGetStatus();
-                    return ToolResult.ofToon(Jsons.serverStatus(context.mapper(), s));
+                    ObjectNode node = Jsons.serverStatus(context.mapper(), s);
+                    // The adapter has no view of the tool registry, so it returns -1 for
+                    // the count; the tool layer (which holds the registry) fills the real value.
+                    if (context.registry() != null) {
+                        node.put("registeredToolCount", context.registry().size());
+                    }
+                    return ToolResult.ofToon(node);
                 });
     }
 }

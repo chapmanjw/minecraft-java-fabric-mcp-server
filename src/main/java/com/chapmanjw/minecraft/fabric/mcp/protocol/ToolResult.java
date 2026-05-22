@@ -37,6 +37,16 @@ public final class ToolResult {
         return this;
     }
 
+    /** Add an image content block (MCP {@code image} type) from raw bytes. */
+    public ToolResult addImage(byte[] data, String mimeType) {
+        ObjectNode node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "image");
+        node.put("data", java.util.Base64.getEncoder().encodeToString(data == null ? new byte[0] : data));
+        node.put("mimeType", mimeType == null ? "image/png" : mimeType);
+        content.add(node);
+        return this;
+    }
+
     /** Mark the result as an error. The {@code content[]} should explain what went wrong. */
     public ToolResult markError() {
         this.isError = true;
@@ -63,5 +73,10 @@ public final class ToolResult {
      */
     public static ToolResult ofToon(JsonNode payload) {
         return create().addText(Toon.encode(payload));
+    }
+
+    /** Quick constructor for a single image content block (e.g. a PNG render). */
+    public static ToolResult ofImage(byte[] data, String mimeType) {
+        return create().addImage(data, mimeType);
     }
 }

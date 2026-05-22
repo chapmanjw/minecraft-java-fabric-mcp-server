@@ -97,7 +97,7 @@ The following modules / helpers were removed in Minecraft 26.1.x and are NOT in 
 
 | What | Reason |
 | --- | --- |
-| `TradeOfferHelper` | Villager trading became data-driven; tools that mutate trades would need a 1.21-only path. We skip them for v0.1.0. |
+| `TradeOfferHelper` | Villager trading became data-driven; tools that mutate trades would need a 1.21-only path. We skip them for v0.2.0. |
 | `HudRenderCallback` | Replaced by `HudElementRegistry`. Client-only — not relevant to this server-side mod. |
 | Deprecated conventional tags previously labelled for 1.22 removal | The deprecated tag aliases were removed; modules now expose only the canonical names. |
 

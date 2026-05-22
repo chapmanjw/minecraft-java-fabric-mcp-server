@@ -58,11 +58,15 @@ curl -s -XPOST http://localhost:8765/mcp \
 | --- | --- |
 | `block_get_state` | Block id, blockstate properties, light, hardness, block-entity NBT. |
 | `block_set_state` | Place a single block with optional state properties / NBT. |
-| `block_fill_region` | Bulk fill (`replace`, `destroy`, `hollow`, `outline`, `keep` modes). |
+| `block_fill_region` | Bulk fill (`replace`, `destroy`, `hollow`, `outline`, `keep` modes). Auto-tiles any volume past the vanilla 32,768 `/fill` cap server-side (so large fills never silently no-op); hollow/outline are decomposed into faces. Returns total blocks changed. |
+| `block_fill_batch` | Apply many fills in one call — the efficient way to place a generated/voxelized build. Each entry is `{from:[x,y,z], to:[x,y,z], block:"id[state]", mode?}`; each is auto-tiled. Bounded to 8192 entries/call. |
 | `block_clone_region` | Copy blocks from one box to another (cross-dimension supported). |
 | `block_replace_in_region` | Replace matching blocks within a box. |
 | `block_get_top_y` | Highest non-air Y at an `(x, z)` column. |
 | `block_scan_region` | Scan a bounded region for matching blocks (volume capped at 65,536). |
+| `block_scan_summary` | Aggregate scan of a box (≤ 1,048,576): material histogram, non-air count, and non-air bounding box — server-side, so no per-block rows flood the client. |
+| `block_get_map_color` | Base map colour of a block: packed `rgb`, `#RRGGBB` hex, r/g/b, palette id. |
+| `block_render_region` | Render a region to a PNG (`iso`/`side`/`front`/`top`) from block map colours — server-side, no client needed. `step` downsamples large regions; `scale` is pixels per voxel. Returns an `image` content block. |
 
 ## BlockEntity
 
@@ -129,7 +133,7 @@ curl -s -XPOST http://localhost:8765/mcp \
 | --- | --- | --- |
 | `command_execute` | Run a slash command as the console source. | `fabric-command-api-v2` |
 | `command_execute_as` | Run as a specific entity (vanilla `/execute as`). | `fabric-command-api-v2` |
-| `command_register` | _Reserved for v0.2.0._ | `fabric-command-api-v2` |
+| `command_register` | _Reserved for a future release._ | `fabric-command-api-v2` |
 
 ## Scoreboard
 
@@ -304,7 +308,7 @@ payload. Example: subscribe to chat messages from one player only:
 Filters use direct `JsonNode.equals` semantics — typed values must match exactly. Use no filters
 to receive all events of the subscribed types.
 
-## v0.1.0 known limitations
+## v0.2.0 known limitations
 
 All 173 registered tools have working adapter implementations against the live Minecraft
 server. The notable nuances:
@@ -313,7 +317,7 @@ server. The notable nuances:
   component view the way `ItemStack` does in modern Minecraft; a future revision will surface
   the Fabric data-attachment map here.
 - `command_register` accepts the call but does not actually register a runtime command — the
-  v0.1.0 wire schema doesn't carry a webhook target. Custom commands will arrive in a later
+  v0.2.0 wire schema doesn't carry a webhook target. Custom commands will arrive in a later
   revision via a `command.*` event channel.
 - `level_set_time` / `level_set_weather` dispatch through `/time set …` / `/weather …` on
   the 26.1.x targets because the typed setters were removed from `ServerLevel` in 26.1

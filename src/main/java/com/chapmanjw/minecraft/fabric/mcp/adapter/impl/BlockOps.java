@@ -102,8 +102,33 @@ final class BlockOps {
         return r.successCount() > 0;
     }
 
+    /**
+     * Vanilla {@code /fill} silently no-ops above this volume (it returns success
+     * with zero blocks changed). We tile every fill to stay under it so callers
+     * never hit the "empty region despite success" trap.
+     */
+    private static final long MAX_FILL_VOLUME = 32_768L;
+
     long blockFillRegion(String dimensionId, BoundingBox box, BlockSpec spec, MinecraftAdapter.FillMode mode) {
-        String modeStr = mode == null ? "replace" : mode.name().toLowerCase(Locale.ROOT);
+        String blockArg = blockArg(spec);
+        MinecraftAdapter.FillMode m = mode == null ? MinecraftAdapter.FillMode.REPLACE : mode;
+        // hollow/outline are shape-aware: naive tiling would stamp interior walls
+        // at every tile seam. Tile only the per-block-independent modes; decompose
+        // an oversized hollow/outline into its six faces (+ interior air) instead.
+        switch (m) {
+            case HOLLOW:
+            case OUTLINE:
+                if (box.volume() <= MAX_FILL_VOLUME) {
+                    return fillOnce(dimensionId, box, blockArg, m.name().toLowerCase(Locale.ROOT));
+                }
+                return fillShell(dimensionId, box, blockArg, m == MinecraftAdapter.FillMode.HOLLOW);
+            default: // REPLACE, DESTROY, KEEP — per-block independent, safe to tile
+                return fillTiled(dimensionId, box, blockArg, m.name().toLowerCase(Locale.ROOT));
+        }
+    }
+
+    /** Build the {@code /fill} block argument: id plus {@code [prop=val,...]} state. */
+    private static String blockArg(BlockSpec spec) {
         StringBuilder block = new StringBuilder(spec.id());
         if (!spec.properties().isEmpty()) {
             block.append('[');
@@ -117,6 +142,11 @@ final class BlockOps {
             }
             block.append(']');
         }
+        return block.toString();
+    }
+
+    /** One {@code /fill} over a box already known to be within the vanilla cap. */
+    private long fillOnce(String dimensionId, BoundingBox box, String blockArg, String modeStr) {
         CommandResult r =
                 ctx.commandExecute(
                         String.format(
@@ -129,9 +159,97 @@ final class BlockOps {
                                 box.x2(),
                                 box.y2(),
                                 box.z2(),
-                                block,
+                                blockArg,
                                 modeStr));
         return r.successCount();
+    }
+
+    /**
+     * Recursively split a box along its longest axis until each piece is within
+     * {@link #MAX_FILL_VOLUME}, filling each. Valid only for per-block-independent
+     * modes (replace / destroy / keep), where tiling cannot change the result.
+     */
+    private long fillTiled(String dimensionId, BoundingBox box, String blockArg, String modeStr) {
+        if (box.volume() <= MAX_FILL_VOLUME) {
+            return fillOnce(dimensionId, box, blockArg, modeStr);
+        }
+        int dx = box.sizeX();
+        int dy = box.sizeY();
+        int dz = box.sizeZ();
+        long sum = 0;
+        if (dx >= dy && dx >= dz) {
+            int mid = (box.x1() + box.x2()) / 2;
+            BoundingBox lo = new BoundingBox(box.x1(), box.y1(), box.z1(), mid, box.y2(), box.z2());
+            BoundingBox hi = new BoundingBox(mid + 1, box.y1(), box.z1(), box.x2(), box.y2(), box.z2());
+            sum += fillTiled(dimensionId, lo, blockArg, modeStr);
+            sum += fillTiled(dimensionId, hi, blockArg, modeStr);
+        } else if (dy >= dz) {
+            int mid = (box.y1() + box.y2()) / 2;
+            BoundingBox lo = new BoundingBox(box.x1(), box.y1(), box.z1(), box.x2(), mid, box.z2());
+            BoundingBox hi = new BoundingBox(box.x1(), mid + 1, box.z1(), box.x2(), box.y2(), box.z2());
+            sum += fillTiled(dimensionId, lo, blockArg, modeStr);
+            sum += fillTiled(dimensionId, hi, blockArg, modeStr);
+        } else {
+            int mid = (box.z1() + box.z2()) / 2;
+            BoundingBox lo = new BoundingBox(box.x1(), box.y1(), box.z1(), box.x2(), box.y2(), mid);
+            BoundingBox hi = new BoundingBox(box.x1(), box.y1(), mid + 1, box.x2(), box.y2(), box.z2());
+            sum += fillTiled(dimensionId, lo, blockArg, modeStr);
+            sum += fillTiled(dimensionId, hi, blockArg, modeStr);
+        }
+        return sum;
+    }
+
+    /**
+     * Outline/hollow over a box too large for one {@code /fill}: place the six
+     * faces as a non-overlapping partition (each face tiled) and, for hollow,
+     * clear the interior to air. Reproduces vanilla outline/hollow without the
+     * interior-wall artifacts naive tiling would create.
+     */
+    private long fillShell(String dimensionId, BoundingBox box, String blockArg, boolean hollow) {
+        int x1 = box.x1();
+        int y1 = box.y1();
+        int z1 = box.z1();
+        int x2 = box.x2();
+        int y2 = box.y2();
+        int z2 = box.z2();
+        String mode = "replace";
+        long sum = 0;
+        // bottom + top: full x,z slabs
+        sum += fillTiled(dimensionId, new BoundingBox(x1, y1, z1, x2, y1, z2), blockArg, mode);
+        if (y2 != y1) {
+            sum += fillTiled(dimensionId, new BoundingBox(x1, y2, z1, x2, y2, z2), blockArg, mode);
+        }
+        int iy1 = y1 + 1;
+        int iy2 = y2 - 1;
+        if (iy1 <= iy2) {
+            // north + south: full x, inner y
+            sum += fillTiled(dimensionId, new BoundingBox(x1, iy1, z1, x2, iy2, z1), blockArg, mode);
+            if (z2 != z1) {
+                sum += fillTiled(dimensionId, new BoundingBox(x1, iy1, z2, x2, iy2, z2), blockArg, mode);
+            }
+            int iz1 = z1 + 1;
+            int iz2 = z2 - 1;
+            if (iz1 <= iz2) {
+                // east + west: inner y, inner z
+                sum += fillTiled(dimensionId, new BoundingBox(x1, iy1, iz1, x1, iy2, iz2), blockArg, mode);
+                if (x2 != x1) {
+                    sum += fillTiled(dimensionId, new BoundingBox(x2, iy1, iz1, x2, iy2, iz2), blockArg, mode);
+                }
+            }
+        }
+        if (hollow) {
+            int ix1 = x1 + 1;
+            int ix2 = x2 - 1;
+            int jy1 = y1 + 1;
+            int jy2 = y2 - 1;
+            int kz1 = z1 + 1;
+            int kz2 = z2 - 1;
+            if (ix1 <= ix2 && jy1 <= jy2 && kz1 <= kz2) {
+                BoundingBox interior = new BoundingBox(ix1, jy1, kz1, ix2, jy2, kz2);
+                sum += fillTiled(dimensionId, interior, "minecraft:air", mode);
+            }
+        }
+        return sum;
     }
 
     long blockCloneRegion(
@@ -244,6 +362,130 @@ final class BlockOps {
             }
         }
         return matches;
+    }
+
+    /**
+     * Maximum cells a single summary scan may inspect. Larger than the raw-scan
+     * cap because the output is tiny (a histogram, not per-block rows); bounded
+     * only to keep the one main-thread pass well under the tool timeout.
+     */
+    private static final long MAX_SUMMARY_VOLUME = 1_048_576L;
+
+    MinecraftAdapter.ScanSummary blockScanSummary(String dimensionId, BoundingBox box) {
+        if (box.volume() > MAX_SUMMARY_VOLUME) {
+            throw new AdapterException(
+                    "blockScanSummary: bounding box volume " + box.volume()
+                            + " exceeds the " + MAX_SUMMARY_VOLUME + "-block cap");
+        }
+        ServerLevel level = ctx.requireLevel(dimensionId);
+        var blocks = level.registryAccess().lookupOrThrow(Registries.BLOCK);
+        java.util.Map<String, Long> histogram = new java.util.LinkedHashMap<>();
+        long nonAir = 0;
+        boolean any = false;
+        int minX = 0;
+        int minY = 0;
+        int minZ = 0;
+        int maxX = 0;
+        int maxY = 0;
+        int maxZ = 0;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int y = box.y1(); y <= box.y2(); y++) {
+            for (int z = box.z1(); z <= box.z2(); z++) {
+                for (int x = box.x1(); x <= box.x2(); x++) {
+                    cursor.set(x, y, z);
+                    BlockState state = level.getBlockState(cursor);
+                    if (state.isAir()) {
+                        continue;
+                    }
+                    nonAir++;
+                    Identifier id = blocks.getKey(state.getBlock());
+                    histogram.merge(id == null ? "minecraft:air" : id.toString(), 1L, Long::sum);
+                    if (!any) {
+                        minX = x;
+                        minY = y;
+                        minZ = z;
+                        maxX = x;
+                        maxY = y;
+                        maxZ = z;
+                        any = true;
+                    } else {
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        minZ = Math.min(minZ, z);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                        maxZ = Math.max(maxZ, z);
+                    }
+                }
+            }
+        }
+        Vec3i mn = any ? new Vec3i(minX, minY, minZ) : null;
+        Vec3i mx = any ? new Vec3i(maxX, maxY, maxZ) : null;
+        return new MinecraftAdapter.ScanSummary(box.volume(), nonAir, histogram, mn, mx);
+    }
+
+    Optional<MinecraftAdapter.MapColorInfo> blockGetMapColor(String dimensionId, Vec3i position) {
+        try {
+            ServerLevel level = ctx.requireLevel(dimensionId);
+            BlockPos pos = new BlockPos(position.x(), position.y(), position.z());
+            BlockState state = level.getBlockState(pos);
+            net.minecraft.world.level.material.MapColor color = state.getMapColor(level, pos);
+            if (color == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new MinecraftAdapter.MapColorInfo(color.id, color.col));
+        } catch (AdapterException ae) {
+            return Optional.empty();
+        }
+    }
+
+    /** Maximum sampled cells (post-downsample) a single render may rasterize. */
+    private static final long MAX_RENDER_CELLS = 4_194_304L;
+
+    /** Fallback colour for a block with no map colour. */
+    private static final int UNKNOWN_RGB = 0x888888;
+    /** Low 24 bits — drop any alpha from a packed map colour. */
+    private static final int RGB_MASK = 0xFFFFFF;
+    /** Stand-in for a true-black solid so it isn't confused with empty (0). */
+    private static final int NEAR_BLACK_RGB = 0x010101;
+
+    byte[] worldRenderRegion(String dimensionId, BoundingBox box, String view, int step, int scale) {
+        int s = Math.max(1, step);
+        int nx = (box.sizeX() + s - 1) / s;
+        int ny = (box.sizeY() + s - 1) / s;
+        int nz = (box.sizeZ() + s - 1) / s;
+        long cells = (long) nx * ny * nz;
+        if (cells > MAX_RENDER_CELLS) {
+            throw new AdapterException(
+                    "worldRenderRegion: " + cells + " sampled cells exceed the "
+                            + MAX_RENDER_CELLS + "-cell cap; increase step or shrink the box");
+        }
+        ServerLevel level = ctx.requireLevel(dimensionId);
+        int[] colors = new int[(int) cells];
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int gi = 0;
+        for (int xi = 0; xi < nx; xi++) {
+            int wx = box.x1() + xi * s;
+            for (int yi = 0; yi < ny; yi++) {
+                int wy = box.y1() + yi * s;
+                for (int zi = 0; zi < nz; zi++) {
+                    int wz = box.z1() + zi * s;
+                    cursor.set(wx, wy, wz);
+                    BlockState state = level.getBlockState(cursor);
+                    int rgb = 0; // 0 == air/empty
+                    if (!state.isAir()) {
+                        net.minecraft.world.level.material.MapColor mc =
+                                state.getMapColor(level, cursor);
+                        rgb = (mc == null) ? UNKNOWN_RGB : (mc.col & RGB_MASK);
+                        if (rgb == 0) {
+                            rgb = NEAR_BLACK_RGB; // keep true-black blocks distinct from air
+                        }
+                    }
+                    colors[gi++] = rgb;
+                }
+            }
+        }
+        return VoxelRenderer.render(colors, nx, ny, nz, view, scale);
     }
 
     // =====================================================================

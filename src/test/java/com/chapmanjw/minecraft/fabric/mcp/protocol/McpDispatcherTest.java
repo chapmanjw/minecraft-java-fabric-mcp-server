@@ -32,7 +32,7 @@ class McpDispatcherTest {
                         "echo", "Echo the input", "", "", java.util.List.of(), "",
                         ToolCategory.GAMEPLAY, false, EchoTool.class),
                 new EchoTool());
-        ToolContext ctx = new ToolContext(null, null, null, null, mapper);
+        ToolContext ctx = new ToolContext(null, null, null, null, mapper, null);
         dispatcher =
                 new McpDispatcher(
                         registry,
@@ -218,7 +218,7 @@ class McpDispatcherTest {
         McpDispatcher d2 =
                 new McpDispatcher(
                         r2,
-                        new ToolContext(null, null, null, null, mapper),
+                        new ToolContext(null, null, null, null, mapper, null),
                         mapper,
                         new McpDispatcher.ServerInfo("t", "0", null));
         JsonNode req =
@@ -243,7 +243,7 @@ class McpDispatcherTest {
         McpDispatcher d2 =
                 new McpDispatcher(
                         r2,
-                        new ToolContext(null, null, null, null, mapper),
+                        new ToolContext(null, null, null, null, mapper, null),
                         mapper,
                         new McpDispatcher.ServerInfo("t", "0", null));
         JsonNode req =
@@ -269,7 +269,7 @@ class McpDispatcherTest {
         McpDispatcher d2 =
                 new McpDispatcher(
                         r2,
-                        new ToolContext(null, null, null, null, mapper),
+                        new ToolContext(null, null, null, null, mapper, null),
                         mapper,
                         new McpDispatcher.ServerInfo("t", "0", null));
         JsonNode req =

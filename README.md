@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/logo.png" width="200" alt="Minecraft Java Fabric MCP Server logo">
+</p>
+
 # Minecraft Java MCP Server (Fabric)
 
 A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that runs **inside Minecraft
@@ -5,7 +9,14 @@ Java Edition as a Fabric mod**. It exposes the server-side Minecraft API and the
 tools so an MCP client — Claude Desktop, Cursor, or any agent that speaks MCP — can read and
 manipulate a live world programmatically.
 
-The mod ships separate jars for each supported Minecraft version. The build matrix in v0.1.0 is
+![A voxel mascot built in a live world over MCP](docs/images/bean.png)
+
+*An agent built this over MCP — authored as a parametric voxel model, then placed
+in a single `block_fill_batch` and verified with `block_render_region` (the
+server-side render that produced no screenshot dependency — it reads block map
+colours straight from the world).*
+
+The mod ships separate jars for each supported Minecraft version. The build matrix in v0.2.0 is
 **1.21.11**, **26.1.1**, and **26.1.2**.
 
 ## ⚠️ Built on Minecraft and Fabric API internals
@@ -97,7 +108,7 @@ Minecraft Launcher and creates a `mods/` folder under your game directory.
 
 - This mod: grab the matching jar from the
   [Releases page](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases). Pick the
-  file whose suffix matches your Minecraft version, e.g. `minecraft-fabric-mcp-0.1.0+1.21.11.jar`.
+  file whose suffix matches your Minecraft version, e.g. `minecraft-fabric-mcp-0.2.0+1.21.11.jar`.
 - [Fabric API](https://modrinth.com/mod/fabric-api): pick the version that matches the same MC
   version.
 
@@ -117,7 +128,7 @@ and the MCP listener binds to `http://127.0.0.1:8765/mcp`. Confirm with:
 
 ```sh
 curl http://127.0.0.1:8765/healthz
-# → {"ok":true,...}
+# → {"status":"ok"}
 ```
 
 ### 7. Connect an MCP client
@@ -232,7 +243,7 @@ the Bedrock `mc_<domain>_<action>` style. Tools group by the class or concept th
 | --- | --- |
 | `server_*` | `server_get_status`, `server_set_motd`, `server_save_all_worlds` |
 | `level_*` | `level_set_time`, `level_set_weather`, `level_create_explosion`, `level_get_biome_at` |
-| `block_*` | `block_get_state`, `block_set_state`, `block_fill_region`, `block_clone_region` |
+| `block_*` | `block_get_state`, `block_fill_region`, `block_fill_batch`, `block_scan_summary`, `block_render_region` |
 | `block_entity_*` | `block_entity_get_nbt`, `block_entity_set_nbt` |
 | `entity_*` | `entity_summon`, `entity_teleport`, `entity_apply_effect` |
 | `player_*` | `player_list_online`, `player_give_item`, `player_send_title` |
@@ -250,7 +261,7 @@ A full reference with JSON Schemas and per-version annotations lives in [docs/to
 
 ## Version compatibility
 
-The mod ships **one jar per Minecraft version**. The v0.1.0 build matrix:
+The mod ships **one jar per Minecraft version**. The v0.2.0 build matrix:
 
 | Minecraft | Required JDK | Mappings        | Mod jar suffix |
 | --------- | ------------ | --------------- | -------------- |
@@ -298,8 +309,8 @@ see [docs/cursor-integration.md](docs/cursor-integration.md).
 | Route | Method(s) | Purpose |
 | --- | --- | --- |
 | `/mcp` | `POST` | Single JSON-RPC request → JSON-RPC response |
-| `/mcp` | `GET` | Server-to-client SSE stream (no spontaneous messages in v0.1.0) |
-| `/mcp` | `DELETE` | Close session (no-op in the stateless v0.1.0 dispatcher) |
+| `/mcp` | `GET` | Server-to-client SSE stream (no spontaneous messages in v0.2.0) |
+| `/mcp` | `DELETE` | Close session (no-op in the stateless v0.2.0 dispatcher) |
 | `/mcp` | `OPTIONS` | CORS preflight |
 | `/healthz` | `GET` | Liveness probe (no auth) |
 
@@ -336,7 +347,7 @@ contract**, governed by semantic versioning, is:
 - tool **names**,
 - tool **input schemas**,
 - tool **output** (the `result` field of the response envelope),
-- the MCP wire protocol revision (`2025-06-18` in v0.1.0),
+- the MCP wire protocol revision (`2025-06-18` in v0.2.0),
 - the configuration schema and environment variable names.
 
 Internal layering (transport, runtime, adapter implementations) is not part of the contract and

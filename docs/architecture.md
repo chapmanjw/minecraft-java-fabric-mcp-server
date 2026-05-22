@@ -59,7 +59,7 @@ the canonical entry point: it handles `initialize`, `tools/list`, `tools/call`, 
 notifications.
 
 We considered taking a hard dependency on `io.modelcontextprotocol.sdk:mcp` (the official Java
-SDK) but rejected it for v0.1.0:
+SDK) but rejected it for v0.2.0:
 
 - The SDK's transport SPI is designed for Servlet / WebFlux runtimes. We use JDK HttpServer,
   which would force a custom transport adapter anyway — so we'd be wrapping the SDK's transport

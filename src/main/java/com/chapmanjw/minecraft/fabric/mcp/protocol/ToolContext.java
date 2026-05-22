@@ -18,7 +18,8 @@ public record ToolContext(
         MinecraftMainThreadExecutor mainThreadExecutor,
         EventBus eventBus,
         Config config,
-        ObjectMapper mapper) {
+        ObjectMapper mapper,
+        ToolRegistry registry) {
 
     /** Convenience: re-export the main-thread default timeout for tool handlers. */
     public long defaultTimeoutMs() {

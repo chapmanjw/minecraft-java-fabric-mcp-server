@@ -7,7 +7,7 @@ the next section explains why, and how to opt in.
 
 ## Status
 
-In v0.1.0 the gametest tree is **scaffolding only** — the Java classes are written and
+In v0.2.0 the gametest tree is **scaffolding only** — the Java classes are written and
 correct, but they're not compiled or executed during `./gradlew chiseledBuild` or
 `./gradlew chiseledTest`. The decision is deliberate:
 
@@ -17,7 +17,7 @@ correct, but they're not compiled or executed during `./gradlew chiseledBuild` o
 - The cleanest workaround would be to either (a) only register the gametest source set in
   the `vcsVersion` subproject, (b) materialize a wholly separate `versions/<ver>/src/gametest/`
   tree per subproject, or (c) wait for upstream Stonecutter to grow source-set-aware
-  preprocessing. None of those are zero-cost for v0.1.0.
+  preprocessing. None of those are zero-cost for v0.2.0.
 
 The classes themselves compile under the right setup (verified locally with a single-version
 project) and exercise the canonical MCP dispatch path against a live server.

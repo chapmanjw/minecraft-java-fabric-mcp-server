@@ -142,6 +142,8 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
                 s.getPlayerCount(),
                 s.getMaxPlayers(),
                 dims,
+                // registeredToolCount: the adapter has no view of the tool registry; the
+                // server_get_status tool overrides this with the real count.
                 -1);
     }
 
@@ -356,6 +358,21 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     public List<BlockMatch> blockScanRegion(
             String dimensionId, BoundingBox box, String matchBlockId, int limit) {
         return blockOps.blockScanRegion(dimensionId, box, matchBlockId, limit);
+    }
+
+    @Override
+    public ScanSummary blockScanSummary(String dimensionId, BoundingBox box) {
+        return blockOps.blockScanSummary(dimensionId, box);
+    }
+
+    @Override
+    public Optional<MapColorInfo> blockGetMapColor(String dimensionId, Vec3i position) {
+        return blockOps.blockGetMapColor(dimensionId, position);
+    }
+
+    @Override
+    public byte[] worldRenderRegion(String dimensionId, BoundingBox box, String view, int step, int scale) {
+        return blockOps.worldRenderRegion(dimensionId, box, view, step, scale);
     }
 
     // =====================================================================

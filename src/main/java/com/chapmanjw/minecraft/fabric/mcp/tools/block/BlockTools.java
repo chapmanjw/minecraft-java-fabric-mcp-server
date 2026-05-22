@@ -83,6 +83,36 @@ public final class BlockTools {
                 .build();
     }
 
+    /** Read a position from either a {@code [x,y,z]} array or a {@code {x,y,z}} object. */
+    private static Vec3i readVec3iFlexible(JsonNode node) {
+        if (node != null && node.isArray() && node.size() == 3) {
+            return new Vec3i(node.get(0).asInt(), node.get(1).asInt(), node.get(2).asInt());
+        }
+        return readVec3i(node);
+    }
+
+    /** Parse a block-state string ("minecraft:oak_log[axis=y]") into a BlockSpec (no NBT). */
+    private static BlockSpec parseBlockString(String s) {
+        if (s == null || s.isBlank()) {
+            throw new McpException(ErrorCodes.TOOL_INPUT_INVALID, "fill entry: 'block' must be a non-empty id");
+        }
+        s = s.trim();
+        int br = s.indexOf('[');
+        if (br < 0) {
+            return new BlockSpec(s, new LinkedHashMap<>(), null);
+        }
+        String id = s.substring(0, br);
+        int end = s.endsWith("]") ? s.length() - 1 : s.length();
+        Map<String, String> props = new LinkedHashMap<>();
+        for (String kv : s.substring(br + 1, end).split(",")) {
+            int eq = kv.indexOf('=');
+            if (eq > 0) {
+                props.put(kv.substring(0, eq).trim(), kv.substring(eq + 1).trim());
+            }
+        }
+        return new BlockSpec(id, props, null);
+    }
+
     // -------------------------------------------------------------------
     // block_get_state
     // -------------------------------------------------------------------
@@ -190,8 +220,10 @@ public final class BlockTools {
     @McpTool(
             name = "block_fill_region",
             description =
-                    "Bulk fill an inclusive bounding box. Volumes up to 32768 blocks are synchronous;"
-                            + " larger fills use vanilla /fill chunking.")
+                    "Bulk fill an inclusive bounding box. Any volume is accepted: fills larger than the"
+                            + " vanilla 32768-block /fill cap are auto-tiled server-side (so they never"
+                            + " silently no-op), and hollow/outline are decomposed into faces. Returns the"
+                            + " total blocks changed. For many separate fills, prefer block_fill_batch.")
     public static final class FillRegion extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -401,6 +433,278 @@ public final class BlockTools {
                             n.set("state", Jsons.blockState(context.mapper(), m.state()));
                         }
                         return ToolResult.ofToon(arr);
+                    });
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // block_fill_batch
+    // -------------------------------------------------------------------
+    @McpTool(
+            name = "block_fill_batch",
+            description =
+                    "Apply many fills in ONE call — the efficient way to place a generated/voxelized"
+                            + " build. Each entry is {from:[x,y,z], to:[x,y,z], block:\"id[state]\", mode?}."
+                            + " Each fill is auto-tiled to the vanilla cap. Returns total blocks changed and"
+                            + " fills applied. Bounded to 8192 entries per call — page larger batches.")
+    public static final class FillBatch extends BaseTool {
+        private static final int MAX_ENTRIES = 8192;
+        private static final JsonNode FILL_ITEM =
+                Schemas.object()
+                        .required("from", Schemas.arrayOf("Min corner [x,y,z]", Schemas.integer("coord")))
+                        .required("to", Schemas.arrayOf("Max corner [x,y,z]", Schemas.integer("coord")))
+                        .required(
+                                "block",
+                                Schemas.string("Block id with optional [state], e.g. minecraft:cyan_concrete"))
+                        .optional(
+                                "mode",
+                                Schemas.enumOf(
+                                        "Fill mode for this entry",
+                                        "replace",
+                                        "destroy",
+                                        "hollow",
+                                        "outline",
+                                        "keep"))
+                        .build();
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required("fills", Schemas.arrayOf("Fills to apply, in order", FILL_ITEM))
+                        .optional(
+                                "default_mode",
+                                Schemas.enumOf(
+                                        "Mode for entries without their own (default replace)",
+                                        "replace",
+                                        "destroy",
+                                        "hollow",
+                                        "outline",
+                                        "keep"))
+                        .build();
+
+        public FillBatch() {
+            super("block_fill_batch");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            JsonNode fills = r.requireArray("fills");
+            if (fills.size() > MAX_ENTRIES) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_fill_batch: "
+                                + fills.size()
+                                + " fills exceeds the "
+                                + MAX_ENTRIES
+                                + "-entry cap; split the batch");
+            }
+            String defaultMode = r.optString("default_mode", "replace");
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        long totalChanged = 0;
+                        int applied = 0;
+                        for (JsonNode entry : fills) {
+                            BoundingBox box =
+                                    BoundingBox.of(
+                                            readVec3iFlexible(entry.get("from")),
+                                            readVec3iFlexible(entry.get("to")));
+                            JsonNode blockNode = entry.get("block");
+                            if (blockNode == null || !blockNode.isTextual()) {
+                                throw new McpException(
+                                        ErrorCodes.TOOL_INPUT_INVALID,
+                                        "block_fill_batch: each fill needs a 'block' string");
+                            }
+                            BlockSpec spec = parseBlockString(blockNode.asText());
+                            String modeStr =
+                                    entry.has("mode") && entry.get("mode").isTextual()
+                                            ? entry.get("mode").asText()
+                                            : defaultMode;
+                            MinecraftAdapter.FillMode mode =
+                                    MinecraftAdapter.FillMode.valueOf(
+                                            modeStr.toUpperCase(java.util.Locale.ROOT));
+                            totalChanged += context.adapter().blockFillRegion(dim, box, spec, mode);
+                            applied++;
+                        }
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("fills_applied", applied);
+                        payload.put("blocks_changed", totalChanged);
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // block_scan_summary
+    // -------------------------------------------------------------------
+    @McpTool(
+            name = "block_scan_summary",
+            description =
+                    "Aggregate scan of a box: non-air count, the non-air bounding box, and a material"
+                            + " histogram — computed server-side so no raw per-block data floods context."
+                            + " The primitive for archaeology (scan a high y-layer, cluster materials) and"
+                            + " pre-clear checks (what would I overwrite?). Volume capped at 1,048,576.")
+    public static final class ScanSummary extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required("box", Schemas.box3d("Bounding box (volume <= 1048576)"))
+                        .optional(
+                                "top",
+                                Schemas.integerBetween("Max histogram entries to return", 1, 512))
+                        .build();
+
+        public ScanSummary() {
+            super("block_scan_summary");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            BoundingBox box = readBox(r.requireObject("box"));
+            int top = r.optInt("top", 64);
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        var s = context.adapter().blockScanSummary(dim, box);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("scanned_volume", s.scannedVolume());
+                        payload.put("non_air", s.nonAirCount());
+                        if (s.nonAirMin() != null) {
+                            ObjectNode bounds = payload.putObject("non_air_bounds");
+                            bounds.set("min", Jsons.vec3i(context.mapper(), s.nonAirMin()));
+                            bounds.set("max", Jsons.vec3i(context.mapper(), s.nonAirMax()));
+                        }
+                        ArrayNode hist = payload.putArray("histogram");
+                        s.histogram().entrySet().stream()
+                                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                                .limit(top)
+                                .forEach(
+                                        e -> {
+                                            ObjectNode n = hist.addObject();
+                                            n.put("id", e.getKey());
+                                            n.put("count", e.getValue());
+                                        });
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // block_get_map_color
+    // -------------------------------------------------------------------
+    @McpTool(
+            name = "block_get_map_color",
+            description =
+                    "Returns the base map colour of the block at a position — packed rgb (0xRRGGBB), a"
+                            + " #RRGGBB hex string, r/g/b components, and the palette id. The authoritative"
+                            + " block-to-colour mapping for rendering and pixel-art quantization.")
+    public static final class GetMapColor extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required(
+                                "position",
+                                Schemas.object()
+                                        .required("x", Schemas.integer("X"))
+                                        .required("y", Schemas.integer("Y"))
+                                        .required("z", Schemas.integer("Z"))
+                                        .build())
+                        .build();
+
+        public GetMapColor() {
+            super("block_get_map_color");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            Vec3i pos = readVec3i(r.requireObject("position"));
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        var info =
+                                context.adapter()
+                                        .blockGetMapColor(dim, pos)
+                                        .orElseThrow(
+                                                () ->
+                                                        new McpException(
+                                                                ErrorCodes.TOOL_HANDLER_ERROR,
+                                                                "Block position not loaded"));
+                        int rgb = info.rgb() & 0xFFFFFF;
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("id", info.id());
+                        payload.put("rgb", rgb);
+                        payload.put("hex", String.format(java.util.Locale.ROOT, "#%06X", rgb));
+                        payload.put("r", (rgb >> 16) & 0xFF);
+                        payload.put("g", (rgb >> 8) & 0xFF);
+                        payload.put("b", rgb & 0xFF);
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // block_render_region
+    // -------------------------------------------------------------------
+    @McpTool(
+            name = "block_render_region",
+            description =
+                    "Render a region to a PNG you can SEE — the verify-time eyes for representational"
+                            + " builds. Flat-shaded voxel render from block map colours, server-side (no"
+                            + " client needed). view: iso (default) | side | front | top. step downsamples"
+                            + " (1 = every block) to fit large regions; scale = pixels per voxel. Sampled"
+                            + " cells (after step) capped at 4,194,304 — raise step or shrink the box.")
+    public static final class RenderRegion extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required("box", Schemas.box3d("Region to render"))
+                        .optional("view", Schemas.enumOf("Projection", "iso", "side", "front", "top"))
+                        .optional("step", Schemas.integerBetween("Downsample stride (1 = full res)", 1, 16))
+                        .optional("scale", Schemas.integerBetween("Pixels per voxel", 1, 16))
+                        .build();
+
+        public RenderRegion() {
+            super("block_render_region");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            BoundingBox box = readBox(r.requireObject("box"));
+            String view = r.optString("view", "iso");
+            int step = r.optInt("step", 1);
+            int scale = r.optInt("scale", 4);
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        byte[] png = context.adapter().worldRenderRegion(dim, box, view, step, scale);
+                        return ToolResult.ofImage(png, "image/png");
                     });
         }
     }
