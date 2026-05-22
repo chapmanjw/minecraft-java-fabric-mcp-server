@@ -95,8 +95,10 @@ jobs:
           tag="${{ needs.build.outputs.tag }}"
           version="${tag#v}"
           # Pull the section between '## [<version>]' and the next '## ['.
+          # Use a literal prefix match (index), not a regex — the version header
+          # contains '[' / '.' which are regex metacharacters.
           notes=$(awk -v v="## [$version]" '
-            $0 ~ v {flag=1; next}
+            index($0, v) == 1 {flag=1; next}
             flag && /^## \[/ {exit}
             flag {print}
           ' CHANGELOG.md)
