@@ -21,6 +21,13 @@ colours straight from the world).*
 *And **Ghasticlawd** — the project's Ghast × Claude mascot — voxelized, placed via
 `block_fill_batch`, and confirmed with `block_render_region`.*
 
+![A layered red-rock canyon inspired by the national parks of the American West, built in a live world over MCP](docs/images/canyon.png)
+
+*And terrain, too — this red-rock canyon, inspired by the national parks of the
+American West, was generated as a hydraulically eroded heightfield,
+render-checked, then materialized into the world through `block_fill_batch` and
+verified with `block_render_region`.*
+
 The mod ships separate jars for each supported Minecraft version. The build matrix in v0.2.0 is
 **1.21.11**, **26.1.1**, and **26.1.2**.
 
