@@ -16,6 +16,11 @@ in a single `block_fill_batch` and verified with `block_render_region` (the
 server-side render that produced no screenshot dependency — it reads block map
 colours straight from the world).*
 
+![Ghasticlawd, a voxel Ghast-and-Claude mascot, built in a live world](docs/images/ghasticlawd.png)
+
+*And **Ghasticlawd** — the project's Ghast × Claude mascot — voxelized, placed via
+`block_fill_batch`, and confirmed with `block_render_region`.*
+
 The mod ships separate jars for each supported Minecraft version. The build matrix in v0.2.0 is
 **1.21.11**, **26.1.1**, and **26.1.2**.
 
