@@ -5,56 +5,73 @@ token configuration and no firewall changes.
 
 ## Prerequisites
 
-- Minecraft: Java Edition account and launcher.
-- Java 21 (for the 1.21.11 jar) or Java 25 (for the 26.1.x jars) installed. Match the mod jar
-  you download to the right JDK — the Minecraft launcher's Fabric Loader profile uses its own
-  bundled JRE so this is only relevant if you launch Minecraft outside the official launcher.
-- An MCP client. Claude Code (with the companion
-  [`minecraft-java-fabric-claude-plugin`](https://github.com/chapmanjw/minecraft-java-fabric-claude-plugin))
-  is the smoothest, but Claude Desktop, Cursor, Windsurf, or any agent that speaks MCP over
-  Streamable HTTP works too.
-- About 5 minutes.
+- Minecraft: Java Edition account and launcher installed
+- Java 21+ installed and on your `PATH` (needed to run the Fabric installer in Step 1).
+  [Temurin](https://adoptium.net/) is the easiest install on all platforms.
+- An MCP client — Claude Code with the companion
+  [`minecraft-java-fabric-claude-plugin`](https://github.com/chapmanjw/minecraft-java-fabric-claude-plugin)
+  is recommended, but Claude Desktop, Cursor, Windsurf, or any agent that speaks MCP over
+  Streamable HTTP works too
+- About 5 minutes
 
 ## Step 1 — Install Fabric Loader
 
-Download the official installer from <https://fabricmc.net/use/installer/>.
+Download the official installer from <https://fabricmc.net/use/installer/> and run it from the
+command line, replacing `<version>` with your target Minecraft version (`1.21.11`, `26.1.1`, or
+`26.1.2`):
 
-- macOS / Linux: `java -jar fabric-installer-*.jar`
-- Windows: double-click the `.exe`.
+**macOS:**
+```sh
+java -jar fabric-installer-*.jar client -mcversion <version> -dir ~/Library/Application\ Support/minecraft
+```
 
-Pick **Client**, select your target Minecraft version (1.21.11, 26.1.1, or 26.1.2), keep the
-default install location, and click **Install**.
+**Windows:**
+```sh
+java -jar fabric-installer-*.jar client -mcversion <version> -dir "%appdata%\.minecraft"
+```
 
-Open the Minecraft Launcher — you should see a new **Fabric Loader** profile. Launch it once,
-then exit the game. This creates the `.minecraft/mods/` folder you'll drop jars into below.
+**Linux:**
+```sh
+java -jar fabric-installer-*.jar client -mcversion <version> -dir ~/.minecraft
+```
+
+The output **must end with "Creating profile"** — if it only shows "Done" without that line,
+the Fabric profile was not created and Step 3 will fail. Re-run the command if that happens.
 
 ## Step 2 — Download the mods
 
 Get **two** jars and place them both in your `.minecraft/mods/` folder:
 
-- **This mod's jar**, matching your Minecraft version. From
-  [Releases](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases) pick the file
-  ending in `+<your-mc-version>.jar`.
-- **Fabric API** at the same Minecraft version. From
-  [Modrinth](https://modrinth.com/mod/fabric-api/versions) pick the matching Loader Version.
+- **This mod's jar** — from
+  [Releases](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases), pick the
+  file ending in `+<your-mc-version>.jar`
+- **Fabric API** — from [Modrinth](https://modrinth.com/mod/fabric-api/versions), pick the
+  matching Loader version
 
-Your mods folder should now contain something like:
+Platform paths:
+- **macOS**: `~/Library/Application Support/minecraft/mods/`
+- **Windows**: `%appdata%\.minecraft\mods\`
+- **Linux**: `~/.minecraft/mods/`
+
+Your mods folder should look like:
 
 ```
 mods/
-├── fabric-api-0.149.1+26.1.2.jar
-└── minecraft-fabric-mcp-0.1.0+26.1.2.jar
+├── fabric-api-0.149.1+<version>.jar
+└── minecraft-fabric-mcp-0.1.0+<version>.jar
 ```
 
-The platform-specific path:
+## Step 3 — Launch the game with Fabric
 
-- **Windows**: `%appdata%\.minecraft\mods\`
-- **macOS**: `~/Library/Application Support/minecraft/mods/`
-- **Linux**: `~/.minecraft/mods/`
+1. Open the **Minecraft Launcher**
+2. In the left sidebar, click **MINECRAFT: JAVA EDITION**
+3. Click the **Installations** tab at the top of the window
+4. Find **fabric-loader-\<version\>** in the list and click **Play** next to it
+5. Create or open any world and get a character into it
 
-## Step 3 — Launch the game
-
-Open the Minecraft Launcher, pick the Fabric profile, click **Play**. Load any world.
+> **Don't see the fabric-loader-\<version\> profile in Installations?** The installer didn't
+> create it in Step 1. Re-run the installer command and confirm the output ends with
+> "Creating profile", then check Installations again.
 
 Check the game log. You should see:
 
@@ -73,8 +90,8 @@ curl http://localhost:8765/healthz
 
 ## Step 4 — Connect Claude
 
-Pick the client you use. Claude Code via the plugin is the quickest; Claude Desktop is a few lines
-of JSON.
+Pick the client you use. Claude Code via the plugin is the quickest; Claude Desktop is a few
+lines of JSON.
 
 ### Option A — Claude Code, via the plugin (recommended)
 
@@ -118,6 +135,8 @@ Save, then quit and reopen Claude Desktop. The MCP tool list appears in the mode
 ## Try it
 
 Open a new chat in your connected client, with at least one player loaded in the Minecraft world:
+
+> "Spawn a chicken in front of me."
 
 > "What's the time and weather right now? Set it to clear and to noon."
 

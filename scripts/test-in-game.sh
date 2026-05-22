@@ -123,10 +123,10 @@ else
     BOLD=""; CYAN=""; GREEN=""; YELLOW=""; RESET=""
 fi
 
-step()  { printf '\n%s==>%s %s\n' "$CYAN" "$RESET" "$1"; }
-info()  { printf '    %s\n' "$1"; }
-ok()    { printf '    %sOK%s: %s\n' "$GREEN" "$RESET" "$1"; }
-warn()  { printf '    %sWARN%s: %s\n' "$YELLOW" "$RESET" "$1"; }
+step()  { printf '\n%s==>%s %s\n' "$CYAN" "$RESET" "$1" >&2; }
+info()  { printf '    %s\n' "$1" >&2; }
+ok()    { printf '    %sOK%s: %s\n' "$GREEN" "$RESET" "$1" >&2; }
+warn()  { printf '    %sWARN%s: %s\n' "$YELLOW" "$RESET" "$1" >&2; }
 
 # --- dependency checks ------------------------------------------------------
 
@@ -167,6 +167,29 @@ find_java() {
     if [[ "$OS" == "Linux" ]]; then
         for d in /usr/lib/jvm/temurin-25* /usr/lib/jvm/temurin-21* /usr/lib/jvm/java-25* /usr/lib/jvm/java-21*; do
             [[ -x "$d/bin/java" ]] && candidates+=("$d/bin/java")
+        done
+    fi
+    # Minecraft Launcher's bundled JRE — no system Java required.
+    # macOS: runtime/<name>/mac-os-arm64/<name>/jre.bundle/Contents/Home/bin/java
+    # Linux: runtime/<name>/linux[-arm64]/<name>/bin/java
+    if [[ "$OS" == "Darwin" ]]; then
+        local mc_runtime="$HOME/Library/Application Support/minecraft/runtime"
+        for arch_dir in "$mc_runtime"/*/mac-os-arm64 "$mc_runtime"/*/mac-os; do
+            [[ -d "$arch_dir" ]] || continue
+            local rt_name
+            rt_name=$(basename "$(dirname "$arch_dir")")
+            local java_bin="$arch_dir/$rt_name/jre.bundle/Contents/Home/bin/java"
+            [[ -x "$java_bin" ]] && candidates+=("$java_bin")
+        done
+    fi
+    if [[ "$OS" == "Linux" ]]; then
+        local mc_runtime="$HOME/.minecraft/runtime"
+        for arch_dir in "$mc_runtime"/*/linux-arm64 "$mc_runtime"/*/linux "$mc_runtime"/*/linux-i386; do
+            [[ -d "$arch_dir" ]] || continue
+            local rt_name
+            rt_name=$(basename "$(dirname "$arch_dir")")
+            local java_bin="$arch_dir/$rt_name/bin/java"
+            [[ -x "$java_bin" ]] && candidates+=("$java_bin")
         done
     fi
     candidates+=("$(command -v java 2>/dev/null || true)")
@@ -210,6 +233,35 @@ find_jdk_home() {
             fi
         done
     fi
+    # 3) Minecraft Launcher's bundled JDK — check the release file for the major version.
+    # macOS: runtime/<name>/mac-os-arm64/<name>/jre.bundle/Contents/Home
+    # Linux: runtime/<name>/linux[-arm64]/<name>
+    if [[ "$OS" == "Darwin" ]]; then
+        local mc_runtime="$HOME/Library/Application Support/minecraft/runtime"
+        for arch_dir in "$mc_runtime"/*/mac-os-arm64 "$mc_runtime"/*/mac-os; do
+            [[ -d "$arch_dir" ]] || continue
+            local rt_name
+            rt_name=$(basename "$(dirname "$arch_dir")")
+            local java_home="$arch_dir/$rt_name/jre.bundle/Contents/Home"
+            [[ -x "$java_home/bin/java" ]] || continue
+            local ver
+            ver=$(grep '^JAVA_VERSION=' "$java_home/release" 2>/dev/null | cut -d'"' -f2 | cut -d'.' -f1)
+            [[ "$ver" == "$major" ]] && { echo "$java_home"; return; }
+        done
+    fi
+    if [[ "$OS" == "Linux" ]]; then
+        local mc_runtime="$HOME/.minecraft/runtime"
+        for arch_dir in "$mc_runtime"/*/linux-arm64 "$mc_runtime"/*/linux "$mc_runtime"/*/linux-i386; do
+            [[ -d "$arch_dir" ]] || continue
+            local rt_name
+            rt_name=$(basename "$(dirname "$arch_dir")")
+            local java_home="$arch_dir/$rt_name"
+            [[ -x "$java_home/bin/java" ]] || continue
+            local ver
+            ver=$(grep '^JAVA_VERSION=' "$java_home/release" 2>/dev/null | cut -d'"' -f2 | cut -d'.' -f1)
+            [[ "$ver" == "$major" ]] && { echo "$java_home"; return; }
+        done
+    fi
     echo ""
 }
 
@@ -224,6 +276,7 @@ set_gradle_toolchain_env() {
     if [[ -n "$jdk21" ]]; then
         export JDK_21="$jdk21"
         export JAVA_HOME_21_X64="$jdk21"
+        [[ -z "${JAVA_HOME:-}" ]] && export JAVA_HOME="$jdk21"
         info "JDK 21: $jdk21"
     else
         info "JDK 21: not found (Gradle will reject if a 1.21.x target needs it)"
@@ -231,6 +284,9 @@ set_gradle_toolchain_env() {
     if [[ -n "$jdk25" ]]; then
         export JDK_25="$jdk25"
         export JAVA_HOME_25_X64="$jdk25"
+        # JDK 25 takes precedence for JAVA_HOME — the 26.1.x Loom variant requires
+        # the Gradle daemon itself to run on JDK 25, so override whatever JDK 21 set.
+        export JAVA_HOME="$jdk25"
         info "JDK 25: $jdk25"
     else
         info "JDK 25: not found (Gradle will reject if a 26.1.x target needs it)"
@@ -324,7 +380,7 @@ invoke_fabric_installer() {
         -mcversion "$mc" \
         -loader "$loader" \
         -dir "$dir" \
-        -noprofile 2>&1 | sed 's/^/    | /'
+        -noprofile 2>&1 | sed 's/^/    | /' >&2
     local expected="$dir/versions/fabric-loader-$loader-$mc"
     if [[ ! -d "$expected" ]]; then
         echo "Error: fabric-installer claimed success but $expected does not exist." >&2
