@@ -36,10 +36,12 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetInfoTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetSpawnPointTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetTimeTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetWeatherTool;
+import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelFillBiomeTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelLightningStrikeTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListBiomesInDimensionTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListDimensionsTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListGameRulesTool;
+import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaceFeatureTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaySoundTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelSetDifficultyTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelSetGameRuleTool;
@@ -106,6 +108,8 @@ public final class ToolRegistration {
                     LevelListGameRulesTool.class,
                     LevelGetBiomeAtTool.class,
                     LevelListBiomesInDimensionTool.class,
+                    LevelPlaceFeatureTool.class,
+                    LevelFillBiomeTool.class,
                     // block
                     BlockTools.GetState.class,
                     BlockTools.SetState.class,
@@ -115,6 +119,7 @@ public final class ToolRegistration {
                     BlockTools.GetTopY.class,
                     BlockTools.ScanRegion.class,
                     BlockTools.FillBatch.class,
+                    BlockTools.FillColumns.class,
                     BlockTools.ScanSummary.class,
                     BlockTools.GetMapColor.class,
                     BlockTools.RenderRegion.class,

@@ -6,6 +6,33 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-22
+
+### Added
+
+- **Terrain tool surface (5 additions/changes).** Server-side support for
+  natural terrain generation, complementing the plugin's client-side `terrain`
+  toolkit:
+  - **`level_place_feature`** — grows a vanilla worldgen feature (configured
+    feature) at a position via `/place feature`: trees, vegetation, ore veins,
+    geodes, dripstone. The way to add natural detail without stamping identical
+    copies. Typed wrapper over the existing command path.
+  - **`level_fill_biome`** — paints the biome of a region via `/fillbiome`
+    (biome was read-only before): foliage/water tint, mob spawns, climate, with
+    an optional `replace_filter`.
+  - **`block_fill_columns`** — materialises a per-column heightmap into terrain
+    in one main-thread pass: send a compact height grid + a small palette
+    instead of thousands of box fills (no 8192-entry `block_fill_batch` cap).
+    Fills each column stone → subsurface → surface and floods to `sea_level`.
+    Columns capped at 65,536 per call (tile larger terrain).
+  - **`block_get_top_y`** now takes an optional `heightmap` argument
+    (`WORLD_SURFACE` default, plus `OCEAN_FLOOR`, `MOTION_BLOCKING`,
+    `MOTION_BLOCKING_NO_LEAVES`, `WORLD_SURFACE_WG`, `OCEAN_FLOOR_WG`) — reads
+    the seabed and worldgen surfaces, not just the world surface.
+  - **`block_render_region`** gains a `hillshade` view: a relief-shaded plan
+    view for terrain, where terraces and flat tops read as flat bands and eroded
+    slopes read as branching relief — the verify view the iso/top projections hide.
+
 ## [0.2.0] - 2026-05-21
 
 ### Removed

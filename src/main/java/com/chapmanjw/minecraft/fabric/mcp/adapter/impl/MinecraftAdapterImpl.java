@@ -350,8 +350,13 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     }
 
     @Override
-    public int blockGetTopY(String dimensionId, int x, int z) {
-        return blockOps.blockGetTopY(dimensionId, x, z);
+    public int blockGetTopY(String dimensionId, int x, int z, String heightmapType) {
+        return blockOps.blockGetTopY(dimensionId, x, z, heightmapType);
+    }
+
+    @Override
+    public long blockFillColumns(String dimensionId, ColumnFill spec) {
+        return blockOps.blockFillColumns(dimensionId, spec);
     }
 
     @Override

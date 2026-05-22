@@ -437,7 +437,15 @@ if (Test-LauncherRunning) {
 
 # --- 1) Build the mod jar ----------------------------------------------------
 
-$modJar = Join-Path $RepoRoot "versions\$Version\build\libs\minecraft-fabric-mcp-0.1.0+$Version.jar"
+# Derive the mod version from gradle.properties so this path tracks releases —
+# don't hardcode it (it rotted at 0.1.0 while the mod moved to 0.2.0 / 0.3.0).
+$modVersion = ((Get-Content (Join-Path $RepoRoot 'gradle.properties') |
+        Where-Object { $_ -match '^\s*mod\.version\s*=' } |
+        Select-Object -First 1) -replace '^\s*mod\.version\s*=\s*', '').Trim()
+if (-not $modVersion) {
+    throw "Couldn't read mod.version from gradle.properties"
+}
+$modJar = Join-Path $RepoRoot "versions\$Version\build\libs\minecraft-fabric-mcp-$modVersion+$Version.jar"
 if ($SkipBuild) {
     Write-Step "Skipping mod build (-SkipBuild)"
     if (-not (Test-Path -LiteralPath $modJar)) {

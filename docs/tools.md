@@ -51,6 +51,8 @@ curl -s -XPOST http://localhost:8765/mcp \
 | `level_get_game_rule` / `level_set_game_rule` / `level_list_game_rules` | Game-rule access. | `fabric-game-rule-api-v1` (set) |
 | `level_get_biome_at` | Biome at a block. | `fabric-biome-api-v1` |
 | `level_list_biomes_in_dimension` | Every biome registered for a dimension. | `fabric-biome-api-v1` |
+| `level_place_feature` | Grows a vanilla worldgen feature at a position (`/place feature`) — trees, vegetation, ore veins, geodes, dripstone. Adds natural detail without stamping identical copies. | — |
+| `level_fill_biome` | Paints the biome of a region (`/fillbiome`) — foliage/water tint, mob spawns, climate; optional `replace_filter`. | — |
 
 ## Block
 
@@ -60,13 +62,14 @@ curl -s -XPOST http://localhost:8765/mcp \
 | `block_set_state` | Place a single block with optional state properties / NBT. |
 | `block_fill_region` | Bulk fill (`replace`, `destroy`, `hollow`, `outline`, `keep` modes). Auto-tiles any volume past the vanilla 32,768 `/fill` cap server-side (so large fills never silently no-op); hollow/outline are decomposed into faces. Returns total blocks changed. |
 | `block_fill_batch` | Apply many fills in one call — the efficient way to place a generated/voxelized build. Each entry is `{from:[x,y,z], to:[x,y,z], block:"id[state]", mode?}`; each is auto-tiled. Bounded to 8192 entries/call. |
+| `block_fill_columns` | Materialise a per-column heightmap into terrain in one call — send a compact height grid + small palette instead of thousands of box fills (no 8192-entry cap). Fills stone → subsurface → surface and floods to `sea_level`. Columns capped at 65,536/call. |
 | `block_clone_region` | Copy blocks from one box to another (cross-dimension supported). |
 | `block_replace_in_region` | Replace matching blocks within a box. |
-| `block_get_top_y` | Highest non-air Y at an `(x, z)` column. |
+| `block_get_top_y` | Highest Y at an `(x, z)` column for a `heightmap` (`WORLD_SURFACE` default, `OCEAN_FLOOR`, `MOTION_BLOCKING`, …). |
 | `block_scan_region` | Scan a bounded region for matching blocks (volume capped at 65,536). |
 | `block_scan_summary` | Aggregate scan of a box (≤ 1,048,576): material histogram, non-air count, and non-air bounding box — server-side, so no per-block rows flood the client. |
 | `block_get_map_color` | Base map colour of a block: packed `rgb`, `#RRGGBB` hex, r/g/b, palette id. |
-| `block_render_region` | Render a region to a PNG (`iso`/`side`/`front`/`top`) from block map colours — server-side, no client needed. `step` downsamples large regions; `scale` is pixels per voxel. Returns an `image` content block. |
+| `block_render_region` | Render a region to a PNG (`iso`/`side`/`front`/`top`/`hillshade`) from block map colours — server-side, no client needed. `hillshade` is a relief-shaded plan view for terrain (terraces/ziggurats show as flat bands). `step` downsamples; `scale` is pixels per voxel. Returns an `image` content block. |
 
 ## BlockEntity
 

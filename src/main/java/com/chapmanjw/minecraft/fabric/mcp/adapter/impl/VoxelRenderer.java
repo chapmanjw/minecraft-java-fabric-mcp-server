@@ -32,6 +32,12 @@ final class VoxelRenderer {
     private static final double SHADE_TOP = 1.0;
     private static final double SHADE_LEFT = 0.66;
     private static final double SHADE_RIGHT = 0.50;
+    // Hillshade light: NW azimuth, 45° altitude (cartographic convention), with an
+    // ambient floor so shadowed slopes stay legible rather than going black.
+    private static final double HILLSHADE_AZIMUTH_DEG = 315.0;
+    private static final double HILLSHADE_ALTITUDE_DEG = 45.0;
+    private static final double HILLSHADE_AMBIENT = 0.35;
+    private static final double HILLSHADE_RANGE = 0.65;
     private static final int PAD = 8;
     private static final int FLAT_Z = 2;
     private static final int FLAT_X = 0;
@@ -48,6 +54,10 @@ final class VoxelRenderer {
                 break;
             case "top":
                 img = top(colors, nx, ny, nz, Math.max(1, scale));
+                break;
+            case "hillshade":
+            case "relief":
+                img = hillshade(colors, nx, ny, nz, Math.max(1, scale));
                 break;
             default:
                 img = iso(colors, nx, ny, nz, Math.max(2, scale));
@@ -220,6 +230,77 @@ final class VoxelRenderer {
                     continue;
                 }
                 g.setColor(new Color(rgb));
+                g.fillRect(x * px, z * px, px, px);
+            }
+        }
+        g.dispose();
+        return img;
+    }
+
+    /**
+     * Relief-shaded plan view for terrain: per (x, z) take the topmost solid voxel's
+     * map colour, then Lambertian-shade it by the surface-height gradient. Terraces
+     * and flat tops read as flat bands; eroded slopes read as branching relief — the
+     * verify view that catches a ziggurat the iso/top views hide. The render box must
+     * span the terrain's full vertical extent so the topmost solid per column is real.
+     */
+    private static BufferedImage hillshade(int[] c, int nx, int ny, int nz, int px) {
+        int[] topY = new int[nx * nz];
+        int[] surf = new int[nx * nz];
+        java.util.Arrays.fill(topY, -1);
+        for (int x = 0; x < nx; x++) {
+            for (int z = 0; z < nz; z++) {
+                for (int y = ny - 1; y >= 0; y--) {
+                    int v = c[idx(x, y, z, ny, nz)];
+                    if (v != 0) {
+                        topY[x * nz + z] = y;
+                        surf[x * nz + z] = v;
+                        break;
+                    }
+                }
+            }
+        }
+        int w = Math.max(1, nx * px);
+        int h = Math.max(1, nz * px);
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(new Color(BG));
+        g.fillRect(0, 0, w, h);
+        // Light from the NW, 45° up — the cartographic convention.
+        double az = Math.toRadians(HILLSHADE_AZIMUTH_DEG);
+        double alt = Math.toRadians(HILLSHADE_ALTITUDE_DEG);
+        double lx = Math.cos(alt) * Math.cos(az);
+        double lz = Math.cos(alt) * Math.sin(az);
+        double ly = Math.sin(alt);
+        for (int x = 0; x < nx; x++) {
+            for (int z = 0; z < nz; z++) {
+                int hh = topY[x * nz + z];
+                if (hh < 0) {
+                    continue; // empty column → background
+                }
+                int hxm = topY[Math.max(0, x - 1) * nz + z];
+                int hxp = topY[Math.min(nx - 1, x + 1) * nz + z];
+                int hzm = topY[x * nz + Math.max(0, z - 1)];
+                int hzp = topY[x * nz + Math.min(nz - 1, z + 1)];
+                if (hxm < 0) {
+                    hxm = hh;
+                }
+                if (hxp < 0) {
+                    hxp = hh;
+                }
+                if (hzm < 0) {
+                    hzm = hh;
+                }
+                if (hzp < 0) {
+                    hzp = hh;
+                }
+                double dzx = (hxp - hxm) / 2.0;
+                double dzz = (hzp - hzm) / 2.0;
+                // surface normal (-dzx, 1, -dzz), normalised, dotted with the light dir
+                double nlen = Math.sqrt(dzx * dzx + 1.0 + dzz * dzz);
+                double dot = (-dzx * lx + ly + -dzz * lz) / nlen;
+                double f = HILLSHADE_AMBIENT + HILLSHADE_RANGE * Math.max(0.0, dot);
+                g.setColor(new Color(shade(surf[x * nz + z], f)));
                 g.fillRect(x * px, z * px, px, px);
             }
         }

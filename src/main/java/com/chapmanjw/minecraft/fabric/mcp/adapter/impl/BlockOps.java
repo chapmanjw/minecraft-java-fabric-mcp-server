@@ -301,9 +301,105 @@ final class BlockOps {
         return r.successCount();
     }
 
-    int blockGetTopY(String dimensionId, int x, int z) {
+    int blockGetTopY(String dimensionId, int x, int z, String heightmapType) {
         ServerLevel level = ctx.requireLevel(dimensionId);
-        return level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, x, z);
+        net.minecraft.world.level.levelgen.Heightmap.Types type;
+        try {
+            type =
+                    (heightmapType == null || heightmapType.isBlank())
+                            ? net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE
+                            : net.minecraft.world.level.levelgen.Heightmap.Types.valueOf(
+                                    heightmapType.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new AdapterException("blockGetTopY: unknown heightmap type '" + heightmapType + "'");
+        }
+        return level.getHeight(type, x, z);
+    }
+
+    /** Update flag for terrain fills: notify clients, skip neighbour-update cascades. */
+    private static final int TERRAIN_UPDATE_FLAGS = net.minecraft.world.level.block.Block.UPDATE_CLIENTS;
+
+    /** Cap on columns per call, mirroring the scan cap — keeps the pass under the timeout. */
+    private static final long MAX_COLUMNS = 65_536L;
+
+    long blockFillColumns(String dimensionId, MinecraftAdapter.ColumnFill spec) {
+        int w = spec.width();
+        int len = spec.length();
+        long columns = (long) w * len;
+        if (w <= 0 || len <= 0) {
+            throw new AdapterException("blockFillColumns: width and length must be positive");
+        }
+        if (columns > MAX_COLUMNS) {
+            throw new AdapterException(
+                    "blockFillColumns: " + columns + " columns exceed the " + MAX_COLUMNS
+                            + "-column cap; tile the heightmap");
+        }
+        int expected = (int) columns;
+        if (spec.height().length != expected
+                || spec.surface().length != expected
+                || spec.subsurface().length != expected) {
+            throw new AdapterException(
+                    "blockFillColumns: height/surface/subsurface arrays must each have width*length ("
+                            + expected + ") entries");
+        }
+
+        ServerLevel level = ctx.requireLevel(dimensionId);
+        var registry = level.registryAccess().lookupOrThrow(Registries.BLOCK);
+        BlockState[] palette = new BlockState[spec.palette().size()];
+        for (int i = 0; i < palette.length; i++) {
+            Identifier id = AdapterContext.parseIdentifier(spec.palette().get(i));
+            var block = registry.getValue(id);
+            if (block == null) {
+                throw new AdapterException("blockFillColumns: unknown block id '" + spec.palette().get(i) + "'");
+            }
+            palette[i] = block.defaultBlockState();
+        }
+        if (spec.stoneIndex() < 0 || spec.stoneIndex() >= palette.length) {
+            throw new AdapterException("blockFillColumns: stoneIndex out of palette range");
+        }
+        BlockState stone = palette[spec.stoneIndex()];
+        BlockState water =
+                (spec.waterIndex() >= 0 && spec.waterIndex() < palette.length)
+                        ? palette[spec.waterIndex()]
+                        : null;
+        int subDepth = Math.max(0, spec.subsurfaceDepth());
+        int floorY = spec.floorY();
+        int seaLevel = spec.seaLevel();
+
+        long set = 0;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int xi = 0; xi < w; xi++) {
+            int wx = spec.originX() + xi;
+            for (int zi = 0; zi < len; zi++) {
+                int wz = spec.originZ() + zi;
+                int i = xi * len + zi;
+                int top = spec.height()[i];
+                int surfIdx = spec.surface()[i];
+                int subIdx = spec.subsurface()[i];
+                if (surfIdx < 0 || surfIdx >= palette.length || subIdx < 0 || subIdx >= palette.length) {
+                    throw new AdapterException("blockFillColumns: surface/subsurface index out of palette range");
+                }
+                BlockState surfState = palette[surfIdx];
+                BlockState subState = palette[subIdx];
+                int subBase = top - subDepth; // first subsurface Y
+                for (int y = floorY; y < top; y++) {
+                    cursor.set(wx, y, wz);
+                    level.setBlock(cursor, y >= subBase ? subState : stone, TERRAIN_UPDATE_FLAGS);
+                    set++;
+                }
+                cursor.set(wx, top, wz);
+                level.setBlock(cursor, surfState, TERRAIN_UPDATE_FLAGS);
+                set++;
+                if (water != null && top < seaLevel) {
+                    for (int y = top + 1; y <= seaLevel; y++) {
+                        cursor.set(wx, y, wz);
+                        level.setBlock(cursor, water, TERRAIN_UPDATE_FLAGS);
+                        set++;
+                    }
+                }
+            }
+        }
+        return set;
     }
 
     /**

@@ -356,13 +356,26 @@ public final class BlockTools {
     // -------------------------------------------------------------------
     @McpTool(
             name = "block_get_top_y",
-            description = "Returns the highest non-air Y at a given (x, z) column.")
+            description =
+                    "Returns the highest Y at an (x, z) column for a heightmap. heightmap:"
+                            + " WORLD_SURFACE (default) | OCEAN_FLOOR (top non-fluid solid, for seabed) |"
+                            + " MOTION_BLOCKING | MOTION_BLOCKING_NO_LEAVES | WORLD_SURFACE_WG | OCEAN_FLOOR_WG.")
     public static final class GetTopY extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
                         .required("dimension", Schemas.string("Dimension identifier"))
                         .required("x", Schemas.integer("Block X"))
                         .required("z", Schemas.integer("Block Z"))
+                        .optional(
+                                "heightmap",
+                                Schemas.enumOf(
+                                        "Heightmap type (default WORLD_SURFACE)",
+                                        "WORLD_SURFACE",
+                                        "OCEAN_FLOOR",
+                                        "MOTION_BLOCKING",
+                                        "MOTION_BLOCKING_NO_LEAVES",
+                                        "WORLD_SURFACE_WG",
+                                        "OCEAN_FLOOR_WG"))
                         .build();
 
         public GetTopY() {
@@ -380,10 +393,11 @@ public final class BlockTools {
             String dim = r.requireString("dimension");
             int x = r.requireInt("x");
             int z = r.requireInt("z");
+            String heightmap = r.optString("heightmap", "WORLD_SURFACE");
             return onMainThread(
                     context,
                     ignored -> {
-                        int y = context.adapter().blockGetTopY(dim, x, z);
+                        int y = context.adapter().blockGetTopY(dim, x, z, heightmap);
                         return ToolResult.ofText(String.valueOf(y));
                     });
         }
@@ -541,6 +555,128 @@ public final class BlockTools {
     }
 
     // -------------------------------------------------------------------
+    // block_fill_columns
+    // -------------------------------------------------------------------
+    @McpTool(
+            name = "block_fill_columns",
+            description =
+                    "Materialise a per-column heightmap into terrain in ONE call — the efficient path"
+                            + " for generated landforms. Send a compact height grid + a small palette"
+                            + " instead of thousands of box fills (no 8192-entry cap). Each column fills"
+                            + " stone -> subsurface -> surface, and floods to sea_level where the surface is"
+                            + " below it. Arrays are row-major, length width*length, index xi*length+zi."
+                            + " Columns capped at 65,536 per call — tile larger terrain.")
+    public static final class FillColumns extends BaseTool {
+        private static final long MAX_COLUMNS = 65_536L;
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required(
+                                "origin",
+                                Schemas.object()
+                                        .description("World (x, z) of column index (0,0)")
+                                        .required("x", Schemas.integer("Origin X"))
+                                        .required("z", Schemas.integer("Origin Z"))
+                                        .build())
+                        .required("width", Schemas.integerBetween("Columns along X", 1, 65536))
+                        .required("length", Schemas.integerBetween("Columns along Z", 1, 65536))
+                        .required("floor_y", Schemas.integer("Bottom Y; stone fills from here up"))
+                        .required(
+                                "palette",
+                                Schemas.arrayOf("Block ids; surface/subsurface index into this", Schemas.string("Block id")))
+                        .required("stone_index", Schemas.integer("Palette index for deep stone"))
+                        .required("height", Schemas.arrayOf("Surface Y per column", Schemas.integer("Y")))
+                        .required("surface", Schemas.arrayOf("Palette index of the surface block per column", Schemas.integer("idx")))
+                        .required("subsurface", Schemas.arrayOf("Palette index of the subsurface block per column", Schemas.integer("idx")))
+                        .optional("subsurface_depth", Schemas.integerBetween("Subsurface thickness (default 3)", 0, 64))
+                        .optional("sea_level", Schemas.integer("Flood columns below this Y with water"))
+                        .optional("water_index", Schemas.integer("Palette index for water (required if sea_level set)"))
+                        .build();
+
+        public FillColumns() {
+            super("block_fill_columns");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            var origin = r.requireObject("origin");
+            int originX = origin.get("x").asInt();
+            int originZ = origin.get("z").asInt();
+            int width = r.requireInt("width");
+            int length = r.requireInt("length");
+            long columns = (long) width * length;
+            if (columns > MAX_COLUMNS) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_fill_columns: " + columns + " columns exceed the " + MAX_COLUMNS
+                                + "-column cap; tile the heightmap");
+            }
+            int expected = (int) columns;
+            int floorY = r.requireInt("floor_y");
+            java.util.List<String> palette = readStringArray(r.requireArray("palette"), "palette");
+            int stoneIndex = r.requireInt("stone_index");
+            int[] height = readIntArray(r.requireArray("height"), "height", expected);
+            int[] surface = readIntArray(r.requireArray("surface"), "surface", expected);
+            int[] subsurface = readIntArray(r.requireArray("subsurface"), "subsurface", expected);
+            int subDepth = r.optInt("subsurface_depth", 3);
+            int seaLevel = r.optInt("sea_level", Integer.MIN_VALUE);
+            int waterIndex = r.optInt("water_index", -1);
+
+            MinecraftAdapter.ColumnFill spec =
+                    new MinecraftAdapter.ColumnFill(
+                            originX, originZ, width, length, floorY, seaLevel, palette,
+                            subDepth, stoneIndex, waterIndex, height, surface, subsurface);
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        long set = context.adapter().blockFillColumns(dim, spec);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("columns", expected);
+                        payload.put("blocks_set", set);
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    private static int[] readIntArray(JsonNode arr, String name, int expectedLen) {
+        if (arr.size() != expectedLen) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "block_fill_columns: '" + name + "' length " + arr.size() + " != width*length " + expectedLen);
+        }
+        int[] out = new int[arr.size()];
+        for (int i = 0; i < arr.size(); i++) {
+            JsonNode e = arr.get(i);
+            if (e == null || !e.isIntegralNumber() || !e.canConvertToInt()) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID, "block_fill_columns: '" + name + "[" + i + "]' must be an integer");
+            }
+            out[i] = e.intValue();
+        }
+        return out;
+    }
+
+    private static java.util.List<String> readStringArray(JsonNode arr, String name) {
+        java.util.List<String> out = new java.util.ArrayList<>(arr.size());
+        for (int i = 0; i < arr.size(); i++) {
+            JsonNode e = arr.get(i);
+            if (e == null || !e.isTextual()) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID, "block_fill_columns: '" + name + "[" + i + "]' must be a string");
+            }
+            out.add(e.asText());
+        }
+        return out;
+    }
+
+    // -------------------------------------------------------------------
     // block_scan_summary
     // -------------------------------------------------------------------
     @McpTool(
@@ -670,15 +806,17 @@ public final class BlockTools {
             description =
                     "Render a region to a PNG you can SEE — the verify-time eyes for representational"
                             + " builds. Flat-shaded voxel render from block map colours, server-side (no"
-                            + " client needed). view: iso (default) | side | front | top. step downsamples"
-                            + " (1 = every block) to fit large regions; scale = pixels per voxel. Sampled"
-                            + " cells (after step) capped at 4,194,304 — raise step or shrink the box.")
+                            + " client needed). view: iso (default) | side | front | top | hillshade"
+                            + " (relief-shaded plan view for TERRAIN — terraces/ziggurats show as flat"
+                            + " bands; span the full vertical extent). step downsamples (1 = every block)"
+                            + " to fit large regions; scale = pixels per voxel. Sampled cells (after step)"
+                            + " capped at 4,194,304 — raise step or shrink the box.")
     public static final class RenderRegion extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
                         .required("dimension", Schemas.string("Dimension identifier"))
                         .required("box", Schemas.box3d("Region to render"))
-                        .optional("view", Schemas.enumOf("Projection", "iso", "side", "front", "top"))
+                        .optional("view", Schemas.enumOf("Projection", "iso", "side", "front", "top", "hillshade"))
                         .optional("step", Schemas.integerBetween("Downsample stride (1 = full res)", 1, 16))
                         .optional("scale", Schemas.integerBetween("Pixels per voxel", 1, 16))
                         .build();

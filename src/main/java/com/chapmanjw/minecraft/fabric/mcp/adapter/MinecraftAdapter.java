@@ -161,7 +161,44 @@ public interface MinecraftAdapter {
     long blockReplaceInRegion(
             String dimensionId, BoundingBox box, String targetBlockId, BlockSpec replacement);
 
-    int blockGetTopY(String dimensionId, int x, int z);
+    /**
+     * Highest Y at column {@code (x, z)} for the given heightmap. {@code heightmapType}
+     * is a {@code net.minecraft.world.level.levelgen.Heightmap.Types} name —
+     * {@code WORLD_SURFACE} (default), {@code OCEAN_FLOOR}, {@code MOTION_BLOCKING},
+     * {@code MOTION_BLOCKING_NO_LEAVES}, {@code WORLD_SURFACE_WG}, {@code OCEAN_FLOOR_WG}.
+     */
+    int blockGetTopY(String dimensionId, int x, int z, String heightmapType);
+
+    /**
+     * Materialise a per-column heightmap into blocks in one main-thread pass — the
+     * efficient path for generated terrain: send a compact height grid + palette
+     * instead of thousands of box fills. Fills each column stone → subsurface →
+     * surface (and water up to {@code seaLevel} where the surface is below it).
+     * Returns the number of blocks set.
+     */
+    long blockFillColumns(String dimensionId, ColumnFill spec);
+
+    /**
+     * A tile of per-column terrain. {@code height}/{@code surface}/{@code subsurface}
+     * are row-major arrays of length {@code width * length} indexed {@code xi*length + zi};
+     * {@code surface}/{@code subsurface} hold palette indices into {@code palette}.
+     * Columns fill from {@code floorY} (stone) up; a column whose top is below
+     * {@code seaLevel} (when {@code waterIndex >= 0}) is flooded with water to sea level.
+     */
+    record ColumnFill(
+            int originX,
+            int originZ,
+            int width,
+            int length,
+            int floorY,
+            int seaLevel,
+            java.util.List<String> palette,
+            int subsurfaceDepth,
+            int stoneIndex,
+            int waterIndex,
+            int[] height,
+            int[] surface,
+            int[] subsurface) {}
 
     List<BlockMatch> blockScanRegion(
             String dimensionId, BoundingBox box, String matchBlockId, int limit);
