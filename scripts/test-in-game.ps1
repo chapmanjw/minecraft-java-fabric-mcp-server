@@ -437,7 +437,7 @@ if (Test-LauncherRunning) {
 
 # --- 1) Build the mod jar ----------------------------------------------------
 
-# Derive the mod version from gradle.properties so this path tracks releases —
+# Derive the mod version from gradle.properties so this path tracks releases --
 # don't hardcode it (it rotted at 0.1.0 while the mod moved to 0.2.0 / 0.3.0).
 $modVersion = ((Get-Content (Join-Path $RepoRoot 'gradle.properties') |
         Where-Object { $_ -match '^\s*mod\.version\s*=' } |
