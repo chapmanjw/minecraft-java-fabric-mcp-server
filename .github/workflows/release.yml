@@ -129,7 +129,7 @@ jobs:
   # Required repository secrets (Settings → Secrets and variables → Actions):
   #   • MODRINTH_TOKEN   — Modrinth PAT with write scope
   #   • CURSEFORGE_TOKEN — CurseForge API token
-  # The Modrinth project slug (minecraft-java-fabric-mcp-server) and the numeric
+  # The Modrinth project id (YCz65sD6, slug fabric-api-mcp-server) and the numeric
   # CurseForge project id (1550191) are set inline below. mc-publish skips any
   # platform whose token is empty, so this is safe to run even before both are
   # provisioned.
@@ -152,8 +152,8 @@ jobs:
       - name: Publish MC ${{ matrix.mc }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
-          # Modrinth — the project slug works as the id.
-          modrinth-id: minecraft-java-fabric-mcp-server
+          # Modrinth — permanent project id (survives slug renames; slug is fabric-api-mcp-server).
+          modrinth-id: YCz65sD6
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           # CurseForge — numeric project id (from the project page sidebar).
           curseforge-id: "1550191"
