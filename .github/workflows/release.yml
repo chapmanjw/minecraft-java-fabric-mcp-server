@@ -164,7 +164,69 @@ jobs:
           version: "${{ needs.build.outputs.version }}+${{ matrix.mc }}"
           version-type: ${{ contains(needs.build.outputs.tag, '-') && 'beta' || 'release' }}
           loaders: fabric
+          # Modrinth uses just the MC version. The per-version "environment"
+          # (client/server side) is NOT part of the v2 upload mc-publish uses,
+          # so it is patched in via the v3 API in the step below.
           game-versions: ${{ matrix.mc }}
+          # CurseForge stores the Client/Server environment as game-version tags
+          # on each file. Append them to a CurseForge-specific override so both
+          # environments are flagged. `any` keeps these non-release tags from
+          # being dropped by the default "releases" game-version filter.
+          curseforge-game-versions: |
+            ${{ matrix.mc }}
+            Client
+            Server
+          curseforge-game-version-filter: any
           dependencies: |
             fabric-api(required)
           retry-attempts: 2
+
+      # ------------------------------------------------------------------
+      # Modrinth per-version environment (client/server side).
+      #
+      # As of Modrinth's 2026 environment-metadata overhaul this lives on the
+      # Version, not the Project, and is only exposed by the experimental v3
+      # API — mc-publish publishes via v2 and cannot set it. So we PATCH it
+      # ourselves: resolve the version we just uploaded by its version_number,
+      # set environment, then read it back to confirm it stuck.
+      #
+      # "client_or_server" = "Works the same on either side" (legacy: client
+      # Optional / server Optional). CurseForge's Client/Server tags are
+      # handled above via curseforge-game-versions.
+      #
+      # Skips cleanly when MODRINTH_TOKEN is unset (matches mc-publish's own
+      # behaviour), so it is safe to keep before the token is provisioned.
+      # NOTE: rides the experimental v3 API — if the verify step starts
+      # failing, check whether Modrinth changed the field/endpoint.
+      # ------------------------------------------------------------------
+      - name: Set Modrinth environment (experimental v3 API)
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MODRINTH_PROJECT: YCz65sD6
+          VERSION_NUMBER: "${{ needs.build.outputs.version }}+${{ matrix.mc }}"
+          ENVIRONMENT: client_or_server
+        run: |
+          set -euo pipefail
+          if [ -z "${MODRINTH_TOKEN:-}" ]; then
+            echo "MODRINTH_TOKEN not set; skipping environment patch."
+            exit 0
+          fi
+          vid=$(curl -fsS -H "Authorization: ${MODRINTH_TOKEN}" \
+            "https://api.modrinth.com/v3/project/${MODRINTH_PROJECT}/version" \
+            | jq -r --arg vn "$VERSION_NUMBER" '.[] | select(.version_number == $vn) | .id' | head -1)
+          if [ -z "$vid" ]; then
+            echo "::error::Could not resolve Modrinth version id for ${VERSION_NUMBER} — was the upload skipped?"
+            exit 1
+          fi
+          echo "Patching environment=${ENVIRONMENT} on Modrinth version ${vid} (${VERSION_NUMBER})"
+          curl -fsS -X PATCH \
+            -H "Authorization: ${MODRINTH_TOKEN}" -H "Content-Type: application/json" \
+            -d "{\"environment\":\"${ENVIRONMENT}\"}" \
+            "https://api.modrinth.com/v3/version/${vid}"
+          actual=$(curl -fsS -H "Authorization: ${MODRINTH_TOKEN}" \
+            "https://api.modrinth.com/v3/version/${vid}" | jq -r '.environment // ""')
+          if [ "$actual" != "${ENVIRONMENT}" ]; then
+            echo "::error::Environment did not stick (expected ${ENVIRONMENT}, got '${actual}')."
+            exit 1
+          fi
+          echo "Confirmed environment=${actual} on ${VERSION_NUMBER}."
