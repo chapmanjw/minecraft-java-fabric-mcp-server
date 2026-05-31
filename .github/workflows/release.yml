@@ -168,15 +168,6 @@ jobs:
           # (client/server side) is NOT part of the v2 upload mc-publish uses,
           # so it is patched in via the v3 API in the step below.
           game-versions: ${{ matrix.mc }}
-          # CurseForge stores the Client/Server environment as game-version tags
-          # on each file. Append them to a CurseForge-specific override so both
-          # environments are flagged. `any` keeps these non-release tags from
-          # being dropped by the default "releases" game-version filter.
-          curseforge-game-versions: |
-            ${{ matrix.mc }}
-            Client
-            Server
-          curseforge-game-version-filter: any
           dependencies: |
             fabric-api(required)
           retry-attempts: 2
@@ -191,8 +182,11 @@ jobs:
       # set environment, then read it back to confirm it stuck.
       #
       # "client_or_server" = "Works the same on either side" (legacy: client
-      # Optional / server Optional). CurseForge's Client/Server tags are
-      # handled above via curseforge-game-versions.
+      # Optional / server Optional). NOTE: per-file CurseForge Client/Server
+      # tagging (curseforge-game-versions: [mc, Client, Server] + filter) was
+      # removed in v0.4.0 — on mc-publish v3.3 it resolved to zero CurseForge
+      # game versions and aborted the whole publish; CurseForge environment is
+      # left at the project default.
       #
       # Skips cleanly when MODRINTH_TOKEN is unset (matches mc-publish's own
       # behaviour), so it is safe to keep before the token is provisioned.
