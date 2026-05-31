@@ -122,7 +122,8 @@ public final class CommandTools {
             description =
                     "Registers a custom slash command callable from in-game. Reserved for v0.2.0; v0.1.0"
                             + " returns an actionable error.",
-            requiredFabricModules = {"fabric-command-api-v2"})
+            requiredFabricModules = {"fabric-command-api-v2"},
+            admin = true)
     public static final class Register extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()

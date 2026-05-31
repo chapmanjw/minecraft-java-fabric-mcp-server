@@ -15,17 +15,38 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 /**
  * Decides which {@code @McpTool}-annotated classes should be registered against the
  * current {@link McEnvironment} and against the operator's {@link Config}-driven
- * category / write-tool filters. Each rejected tool is logged with a single-line
- * reason so users debugging "why isn't tool X available?" can search the boot log.
+ * category / access filters. Each rejected tool is logged with a single-line reason so
+ * users debugging "why isn't tool X available?" can search the boot log.
+ *
+ * <p>Config model precedence (see {@link Config}):
+ *
+ * <ol>
+ *   <li>If {@code includedCategories} is non-empty, that is the category allowlist.
+ *       Otherwise the {@link ToolCategory#enabledByDefault() default-on} categories
+ *       apply.
+ *   <li>Subtract {@code excludedCategories}.
+ *   <li>Drop any tool whose effective {@link ToolAccess} rank exceeds the configured
+ *       {@code maxAccess} cap ({@code excludeWriteTools=true} lowers the cap to
+ *       {@code read}).
+ * </ol>
  */
 public final class ToolCompatibilityFilter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("minecraft_fabric_mcp/compat");
 
+    private static final String VALID_CATEGORIES =
+            "blocks, structures, world, entities, players, items, gameplay, scripting, registries, server";
+
     private final McEnvironment env;
-    private final Set<ToolCategory> includedCategories;
-    private final Set<ToolCategory> excludedCategories;
-    private final boolean excludeWriteTools;
+
+    /**
+     * The effective category allowlist: either the user's non-empty
+     * {@code includedCategories} or the default-on set, with {@code excludedCategories}
+     * already subtracted.
+     */
+    private final Set<ToolCategory> allowedCategories;
+
+    private final ToolAccess maxAccess;
 
     public ToolCompatibilityFilter(McEnvironment env) {
         this(env, Config.defaults());
@@ -33,9 +54,23 @@ public final class ToolCompatibilityFilter {
 
     public ToolCompatibilityFilter(McEnvironment env, Config config) {
         this.env = env;
-        this.includedCategories = parseCategorySet(config.includedCategories(), "included_categories");
-        this.excludedCategories = parseCategorySet(config.excludedCategories(), "excluded_categories");
-        this.excludeWriteTools = config.excludeWriteTools();
+        Set<ToolCategory> included = parseCategorySet(config.includedCategories(), "included_categories");
+        Set<ToolCategory> excluded = parseCategorySet(config.excludedCategories(), "excluded_categories");
+
+        EnumSet<ToolCategory> base;
+        if (!included.isEmpty()) {
+            base = EnumSet.copyOf(included);
+        } else {
+            base = EnumSet.noneOf(ToolCategory.class);
+            for (ToolCategory c : ToolCategory.values()) {
+                if (c.enabledByDefault()) {
+                    base.add(c);
+                }
+            }
+        }
+        base.removeAll(excluded);
+        this.allowedCategories = base;
+        this.maxAccess = config.effectiveMaxAccess();
     }
 
     private static Set<ToolCategory> parseCategorySet(List<String> wireNames, String field) {
@@ -47,15 +82,29 @@ public final class ToolCompatibilityFilter {
             Optional<ToolCategory> parsed = ToolCategory.fromWireName(name);
             if (parsed.isEmpty()) {
                 LOGGER.warn(
-                        "Ignoring unknown category '{}' in config.{} "
-                                + "(valid: world, actors, gameplay, registries, server)",
+                        "Ignoring unknown category '{}' in config.{} (valid: {})",
                         name,
-                        field);
+                        field,
+                        VALID_CATEGORIES);
                 continue;
             }
             out.add(parsed.get());
         }
         return out;
+    }
+
+    /**
+     * Compute the effective {@link ToolAccess} for a tool from its annotation: {@code admin}
+     * wins, then the read-only override / heuristic, otherwise {@code WRITE}.
+     */
+    static ToolAccess effectiveAccess(McpTool meta) {
+        if (meta.admin()) {
+            return ToolAccess.ADMIN;
+        }
+        if (meta.readOnly() || ReadOnlyHeuristic.isReadOnly(meta.name())) {
+            return ToolAccess.READ;
+        }
+        return ToolAccess.WRITE;
     }
 
     /**
@@ -125,27 +174,22 @@ public final class ToolCompatibilityFilter {
         }
 
         ToolCategory category = ToolCategory.forToolName(meta.name());
-        boolean readOnly = meta.readOnly() || ReadOnlyHeuristic.isReadOnly(meta.name());
+        ToolAccess access = effectiveAccess(meta);
 
-        if (!includedCategories.isEmpty() && !includedCategories.contains(category)) {
+        if (!allowedCategories.contains(category)) {
             LOGGER.debug(
-                    "Skipping tool '{}': category '{}' not in includedCategories {}",
+                    "Skipping tool '{}': category '{}' not in active categories {}",
                     meta.name(),
                     category.wireName(),
-                    wireNames(includedCategories));
+                    wireNames(allowedCategories));
             return Optional.empty();
         }
-        if (excludedCategories.contains(category)) {
+        if (access.rank() > maxAccess.rank()) {
             LOGGER.debug(
-                    "Skipping tool '{}': category '{}' is excluded",
+                    "Skipping tool '{}': access '{}' exceeds max_access '{}'",
                     meta.name(),
-                    category.wireName());
-            return Optional.empty();
-        }
-        if (excludeWriteTools && !readOnly) {
-            LOGGER.debug(
-                    "Skipping tool '{}': excludeWriteTools=true and tool is not read-only",
-                    meta.name());
+                    access.wireName(),
+                    maxAccess.wireName());
             return Optional.empty();
         }
 
@@ -158,7 +202,7 @@ public final class ToolCompatibilityFilter {
                         required,
                         meta.requiredFabricLoaderVersion(),
                         category,
-                        readOnly,
+                        access,
                         toolClass));
     }
 

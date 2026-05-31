@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import org.junit.jupiter.api.Test;
 
+import com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess;
 import com.chapmanjw.minecraft.fabric.mcp.compat.ToolCategory;
 import com.chapmanjw.minecraft.fabric.mcp.compat.ToolDescriptor;
 
@@ -20,7 +21,7 @@ class ToolRegistryTest {
     private static ToolDescriptor descriptor(String name) {
         return new ToolDescriptor(
                 name, "desc", "", "", List.of(), "",
-                ToolCategory.WORLD, false, ToolRegistryTest.class);
+                ToolCategory.WORLD, ToolAccess.WRITE, ToolRegistryTest.class);
     }
 
     private static final class NoopTool implements Tool {

@@ -502,10 +502,21 @@ final class WorldOps {
 
     List<StructureInfo> structureList() {
         StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
-        List<StructureInfo> out = new ArrayList<>();
-        try (Stream<Identifier> ids = mgr.listTemplates()) {
-            ids.sorted().forEach(id -> structureGetInfo(id.toString()).ifPresent(out::add));
+        // listTemplates() only enumerates the in-memory / resource-manager templates (the
+        // minecraft: namespace and loaded datapacks); it misses structures saved on disk under
+        // generated/<namespace>/structures/ in custom namespaces (e.g. mcb:*) that have not been
+        // pulled into memory yet. Merge the in-memory ids with an on-disk scan (mirroring
+        // structureFileList) so a freshly structure_save_from_world'd structure shows up here.
+        // De-duplicate via a LinkedHashSet keyed on the identifier string. structureGetInfo()
+        // resolves each id through mgr.get(), which lazily loads custom-namespace templates from
+        // disk, so size/onDisk/inMemory are populated correctly for both sources.
+        java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>();
+        try (Stream<Identifier> templates = mgr.listTemplates()) {
+            templates.map(Identifier::toString).forEach(ids::add);
         }
+        ids.addAll(structureFileList());
+        List<StructureInfo> out = new ArrayList<>();
+        ids.stream().sorted().forEach(id -> structureGetInfo(id).ifPresent(out::add));
         return out;
     }
 

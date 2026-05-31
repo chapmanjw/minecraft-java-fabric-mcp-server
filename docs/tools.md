@@ -52,6 +52,7 @@ curl -s -XPOST http://localhost:8765/mcp \
 | `level_get_biome_at` | Biome at a block. | `fabric-biome-api-v1` |
 | `level_list_biomes_in_dimension` | Every biome registered for a dimension. | `fabric-biome-api-v1` |
 | `level_place_feature` | Grows a vanilla worldgen feature at a position (`/place feature`) — trees, vegetation, ore veins, geodes, dripstone. Adds natural detail without stamping identical copies. | — |
+| `level_place_features_batch` | Grows many vanilla worldgen features in one call — the batch form of `level_place_feature` and the throughput path for a vegetation/detail scatter (`features[]` of `{feature, x, y, z}`, optional `stop_on_error`). One main-thread submission, one rate-limit slot for the whole list. Capped at 4096 entries/call; reports per-entry `placed`/`failed`. | — |
 | `level_fill_biome` | Paints the biome of a region (`/fillbiome`) — foliage/water tint, mob spawns, climate; optional `replace_filter`. | — |
 
 ## Block
@@ -63,6 +64,9 @@ curl -s -XPOST http://localhost:8765/mcp \
 | `block_fill_region` | Bulk fill (`replace`, `destroy`, `hollow`, `outline`, `keep` modes). Auto-tiles any volume past the vanilla 32,768 `/fill` cap server-side (so large fills never silently no-op); hollow/outline are decomposed into faces. Returns total blocks changed. |
 | `block_fill_batch` | Apply many fills in one call — the efficient way to place a generated/voxelized build. Each entry is `{from:[x,y,z], to:[x,y,z], block:"id[state]", mode?}`; each is auto-tiled. Bounded to 8192 entries/call. |
 | `block_fill_columns` | Materialise a per-column heightmap into terrain in one call — send a compact height grid + small palette instead of thousands of box fills (no 8192-entry cap). Fills stone → subsurface → surface and floods to `sea_level`. Columns capped at 65,536/call. |
+| `block_fill_columns_strata` | Like `block_fill_columns` but bands the deep mass below the subsurface into geological strata (the canyon / mesa / badlands signature) instead of one stone block: `strata[]` of `{block, thickness}` top→bottom, `base_stone` below the deepest band, optional `jitter_amplitude`/`jitter_freq` for smooth non-flat band boundaries. Same 65,536-column cap. |
+| `block_erode_region` | Thermal-erode an existing terrain region (synchronous): reads the live surface, runs talus collapse, then re-materialises surface + subsurface to the new profile. `protect_box` (with a smoothstep `apron`) shields built structures so terrain naturalises into them; `dry_run` reports max/mean height delta with no writes. Same 65,536-column cap. |
+| `block_erode_hydraulic_start` / `block_erode_hydraulic_status` / `block_erode_hydraulic_result` | Async hydraulic (rain-droplet) erosion on the job engine: `_start` surveys the surface, simulates droplets carving channels/valleys on a worker thread, then (unless `dry_run`) writes the result back chunked across server ticks, returning a `job_id`; poll `_status` for state (`ERODING`/`WRITING`/`DONE`/`FAILED`) + progress, then read `_result` once `DONE`. `protect_box` + `apron` shield built structures. Region default 256×256, hard cap 512×512. |
 | `block_clone_region` | Copy blocks from one box to another (cross-dimension supported). |
 | `block_replace_in_region` | Replace matching blocks within a box. |
 | `block_get_top_y` | Highest Y at an `(x, z)` column for a `heightmap` (`WORLD_SURFACE` default, `OCEAN_FLOOR`, `MOTION_BLOCKING`, …). |
@@ -311,9 +315,9 @@ payload. Example: subscribe to chat messages from one player only:
 Filters use direct `JsonNode.equals` semantics — typed values must match exactly. Use no filters
 to receive all events of the subscribed types.
 
-## v0.2.0 known limitations
+## Known limitations
 
-All 173 registered tools have working adapter implementations against the live Minecraft
+All 183 registered tools have working adapter implementations against the live Minecraft
 server. The notable nuances:
 
 - `entity_get_components` returns an empty map. Vanilla `Entity` doesn't expose a typed

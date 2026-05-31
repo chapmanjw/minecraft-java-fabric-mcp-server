@@ -82,7 +82,7 @@ public final class DatapackTools {
         }
     }
 
-    @McpTool(name = "datapack_enable", description = "Enables a datapack by id.")
+    @McpTool(name = "datapack_enable", description = "Enables a datapack by id.", admin = true)
     public static final class Enable extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object().required("id", Schemas.string("Datapack id")).build();
@@ -106,7 +106,7 @@ public final class DatapackTools {
         }
     }
 
-    @McpTool(name = "datapack_disable", description = "Disables a datapack by id.")
+    @McpTool(name = "datapack_disable", description = "Disables a datapack by id.", admin = true)
     public static final class Disable extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object().required("id", Schemas.string("Datapack id")).build();

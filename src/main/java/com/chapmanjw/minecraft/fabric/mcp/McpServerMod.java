@@ -25,6 +25,7 @@ import com.chapmanjw.minecraft.fabric.mcp.protocol.McpDispatcher;
 import com.chapmanjw.minecraft.fabric.mcp.protocol.McpHttpRoute;
 import com.chapmanjw.minecraft.fabric.mcp.protocol.ToolContext;
 import com.chapmanjw.minecraft.fabric.mcp.protocol.ToolRegistry;
+import com.chapmanjw.minecraft.fabric.mcp.runtime.AsyncJobRegistry;
 import com.chapmanjw.minecraft.fabric.mcp.runtime.MinecraftMainThreadExecutor;
 import com.chapmanjw.minecraft.fabric.mcp.tools.ToolRegistration;
 import com.chapmanjw.minecraft.fabric.mcp.tools.events.EventWiring;
@@ -46,6 +47,7 @@ public final class McpServerMod implements ModInitializer {
     public static final String MOD_ID = "minecraft_fabric_mcp";
 
     private MinecraftMainThreadExecutor executor;
+    private AsyncJobRegistry jobs;
     private MinecraftAdapter adapter;
     private HttpTransport transport;
     /** Most recently loaded config, retained so the bind-failure path can quote host/port. */
@@ -109,7 +111,8 @@ public final class McpServerMod implements ModInitializer {
             // 4) Protocol + transport
             // -----------------------------------------------------------
             ObjectMapper mapper = new ObjectMapper();
-            ToolContext context = new ToolContext(adapter, executor, eventBus, config, mapper, registry);
+            jobs = new AsyncJobRegistry();
+            ToolContext context = new ToolContext(adapter, executor, eventBus, config, mapper, registry, jobs);
             McpDispatcher.ServerInfo info =
                     new McpDispatcher.ServerInfo(
                             "minecraft-java-fabric-mcp-server",
@@ -177,9 +180,13 @@ public final class McpServerMod implements ModInitializer {
         if (executor != null) {
             executor.detach();
         }
+        if (jobs != null) {
+            jobs.shutdown();
+        }
         adapter = null;
         executor = null;
         transport = null;
+        jobs = null;
     }
 
     private void onEndTick(MinecraftServer server) {
@@ -190,6 +197,9 @@ public final class McpServerMod implements ModInitializer {
         tickCount++;
         if (transport != null && tickCount % PRUNE_RATE_LIMITS_EVERY_N_TICKS == 0L) {
             transport.pruneIdleRateLimits(RATE_LIMIT_IDLE_THRESHOLD_NANOS);
+        }
+        if (jobs != null && adapter != null) {
+            jobs.tick(adapter);
         }
     }
 

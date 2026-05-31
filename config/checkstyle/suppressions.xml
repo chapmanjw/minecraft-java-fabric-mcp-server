@@ -44,4 +44,5 @@
          their own constants files. -->
     <suppress files=".*[\\/]tools[\\/].*\.java" checks="MagicNumber"/>
     <suppress files=".*[\\/]tools[\\/].*\.java" checks="LineLength"/>
+    <suppress files=".*[\\/]runtime[\\/]ErosionJob\.java" checks="MagicNumber"/>
 </suppressions>

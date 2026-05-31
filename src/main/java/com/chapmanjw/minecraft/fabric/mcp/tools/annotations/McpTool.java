@@ -58,9 +58,9 @@ public @interface McpTool {
 
     /**
      * Whether this tool is purely read-only — i.e. does not mutate Minecraft state.
-     * Operators can opt out of all mutating tools via {@code excludeWriteTools=true} in
-     * the config; only tools whose effective read-only status is true survive in that
-     * mode.
+     * Operators can cap the surface to read-only tools via {@code max_access=read} (or
+     * the legacy {@code exclude_write_tools=true}) in the config; only tools whose
+     * effective access is {@code READ} survive in that mode.
      *
      * <p>Default is {@code false}. The registration filter (
      * {@link com.chapmanjw.minecraft.fabric.mcp.compat.ToolCompatibilityFilter}) also
@@ -71,4 +71,18 @@ public @interface McpTool {
      * patterns automatically.
      */
     boolean readOnly() default false;
+
+    /**
+     * Whether this tool is an admin operation — world-wide, server-lifecycle,
+     * destructive, or command-tree. Admin tools are opt-in: they register only when the
+     * operator raises {@code max_access} to {@code admin}.
+     *
+     * <p>The effective access level is computed as:
+     * {@code admin() ? ADMIN : (readOnly() || ReadOnlyHeuristic.isReadOnly(name) ? READ : WRITE)}.
+     * In other words, {@code admin()} wins over the read-only heuristic — a tool named
+     * with a read verb but tagged {@code admin=true} is still {@code ADMIN}.
+     *
+     * <p>Default is {@code false}.
+     */
+    boolean admin() default false;
 }

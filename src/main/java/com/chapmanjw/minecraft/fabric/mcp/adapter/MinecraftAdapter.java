@@ -200,6 +200,134 @@ public interface MinecraftAdapter {
             int[] surface,
             int[] subsurface) {}
 
+    /**
+     * Like {@link #blockFillColumns} but bands the deep fill (below the subsurface)
+     * into geological strata instead of a single stone block — the signature of
+     * canyons, mesas, and badlands. Bands run top → bottom by {@code strataBlocks}
+     * with parallel {@code strataThickness}; everything below the deepest band down
+     * to {@code floorY} is {@code baseStone}. {@code jitterAmplitude}/{@code jitterFreq}
+     * apply a smooth (deterministic sine) wobble to band boundaries so the bands are
+     * not dead-flat (low-frequency, never per-column random). Returns blocks set.
+     */
+    long blockFillColumnsStrata(String dimensionId, ColumnStrataFill spec);
+
+    /** Strata-banded counterpart of {@link ColumnFill}. */
+    record ColumnStrataFill(
+            int originX,
+            int originZ,
+            int width,
+            int length,
+            int floorY,
+            int seaLevel,
+            java.util.List<String> palette,
+            int subsurfaceDepth,
+            int waterIndex,
+            int[] height,
+            int[] surface,
+            int[] subsurface,
+            java.util.List<String> strataBlocks,
+            int[] strataThickness,
+            String baseStone,
+            int jitterAmplitude,
+            double jitterFreq) {}
+
+    /**
+     * Applies thermal (talus) erosion to an existing terrain region and re-materialises
+     * the affected columns. Reads the live surface heightmap, runs {@code iterations}
+     * talus-collapse sweeps moving material to any lower neighbour whose height
+     * difference exceeds {@code talus}, then rewrites surface + subsurface to the new
+     * profile. {@code protectX0..protectZ1} (with a smoothstep {@code apron}) shield
+     * built structures: erosion strength tapers to zero inside the box. Synchronous;
+     * when {@code dryRun} is set, statistics are computed but no blocks are written.
+     */
+    ErodeResult terrainErodeRegion(String dimensionId, ErodeSpec spec);
+
+    /**
+     * Result statistics of {@link #terrainErodeRegion}. {@code heights} is the flat
+     * row-major ({@code xi*length + zi}) eroded new-height grid, populated ONLY for a
+     * dry run so the offline client can render-verify the proposed erosion before
+     * applying; it is {@code null} on an apply (the grid would bloat the response).
+     */
+    record ErodeResult(
+            int columns,
+            long blocksChanged,
+            int maxDelta,
+            double meanAbsDelta,
+            double moved,
+            int iterations,
+            int[] heights) {}
+
+    /**
+     * Specification for {@link #terrainErodeRegion}. A protect box is present when
+     * {@code protectX0 != Integer.MIN_VALUE}; {@code apron} is the taper width in
+     * blocks around it. {@code talus} is the maximum stable neighbour height
+     * difference; {@code strength} is the fraction of excess moved per sweep.
+     */
+    record ErodeSpec(
+            int originX,
+            int originZ,
+            int width,
+            int length,
+            int floorY,
+            int iterations,
+            double talus,
+            double strength,
+            String surface,
+            String subsurface,
+            int subsurfaceDepth,
+            int protectX0,
+            int protectZ0,
+            int protectX1,
+            int protectZ1,
+            int apron,
+            boolean dryRun) {}
+
+    /**
+     * Survey the current surface top-Y of every column in a region, row-major
+     * ({@code xi*length + zi}). The read phase of an async erosion job; runs on the
+     * main thread.
+     */
+    int[] terrainSurveyHeights(String dimensionId, int originX, int originZ, int width, int length);
+
+    /**
+     * Apply one band {@code [fromCol, toCol)} of a pre-computed eroded height grid back
+     * to the world, re-materialising surface + subsurface for each changed column. The
+     * write phase of an async erosion job, called in bounded chunks across server ticks.
+     *
+     * <p>Re-checks chunk load state per column (chunks can unload between ticks when no
+     * player is near): on reaching the first column whose chunk is not loaded it stops and
+     * returns the number of columns it actually advanced from {@code fromCol}, requesting a
+     * load of that chunk so the next tick can retry. The caller advances its write cursor
+     * by {@code colsAdvanced} only — never past an unwritten slice.
+     */
+    ErodedApplyResult terrainApplyErodedColumns(String dimensionId, ErodedApply spec);
+
+    /**
+     * Outcome of one {@link #terrainApplyErodedColumns} band: {@code blocksChanged} block
+     * writes performed, and {@code colsAdvanced} columns consumed from {@code fromCol}
+     * (less than the requested span when a mid-band chunk had unloaded).
+     */
+    record ErodedApplyResult(long blocksChanged, int colsAdvanced) {}
+
+    /**
+     * A slice of an eroded height grid queued for write-back. {@code oldHeights} and
+     * {@code newHeights} are the full region grids (row-major); {@code fromCol}/{@code toCol}
+     * bound the columns to write this call.
+     */
+    record ErodedApply(
+            int originX,
+            int originZ,
+            int width,
+            int length,
+            int floorY,
+            String surface,
+            String subsurface,
+            int subsurfaceDepth,
+            int[] oldHeights,
+            int[] newHeights,
+            int fromCol,
+            int toCol) {}
+
     List<BlockMatch> blockScanRegion(
             String dimensionId, BoundingBox box, String matchBlockId, int limit);
 

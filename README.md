@@ -226,9 +226,12 @@ the file only needs to exist if you're overriding something.
 | `log_level` | `info` | SLF4J log level. |
 | `tls_cert_path` / `tls_key_path` | _(null)_ | If both set, the listener serves HTTPS. Both must be set, or both null. |
 | `metrics_enabled` | `false` | Reserved for the Prometheus `/metrics` endpoint (v0.2.0). |
-| `included_categories` | `[]` | If non-empty, only tools in these categories are registered. Categories: `world`, `actors`, `gameplay`, `registries`, `server`. |
-| `excluded_categories` | `[]` | Tools in these categories are dropped. Applied after `included_categories`. |
-| `exclude_write_tools` | `false` | When true, only read-only inspection tools are exposed. Useful for observer agents. |
+| `included_categories` | `[]` | Allow-list of domain categories. If non-empty it replaces the default-ON set. One of `blocks`, `structures`, `world`, `entities`, `players`, `items`, `gameplay`, `scripting`, `registries`, `server`. |
+| `excluded_categories` | `[]` | Domain categories to drop. Applied after the allow-list (or the default-ON set). |
+| `max_access` | `write` | Access cap: `read`, `write`, or `admin`. Tools above the cap are dropped. The default `write` keeps admin/destructive tools off until you opt in. |
+| `exclude_write_tools` | `false` | Legacy switch, equivalent to `max_access: read`. When true, only read tools register. |
+
+See [Tool categories, access levels & defaults](#tool-categories-access-levels--defaults) for the full model and worked examples.
 
 See [docs/configuration.md](docs/configuration.md) for the full reference and recipe-style examples.
 
@@ -270,6 +273,162 @@ the Bedrock `mc_<domain>_<action>` style. Tools group by the class or concept th
 | `events_*` | `events_subscribe`, `events_poll`, `events_unsubscribe` |
 
 A full reference with JSON Schemas and per-version annotations lives in [docs/tools.md](docs/tools.md).
+
+## Tool categories, access levels & defaults
+
+The 183 tools are filtered along two independent axes so you can narrow the surface by
+**subsystem** and by **risk** at the same time:
+
+- **Domain** — which part of Minecraft the tool touches: blocks, entities, the server itself,
+  and so on. Ten categories, each tied to a tool-name prefix. This is the "I only care about
+  world-building, hide the scoreboard plumbing" axis.
+- **Access** — how dangerous the tool is: `read` (inspects state, mutates nothing) <
+  `write` (the normal case: changes a block, an entity, an item) <
+  `admin` (world-wide, server-lifecycle, or destructive — explosions, world-border resizing,
+  difficulty and game-rule changes, datapack toggles, kicking players, registering commands).
+  This is the "let the agent build, but don't let it reshape the world border or reload
+  resources" axis.
+
+An operator filters on both: pick the subsystems you want, then cap the blast radius.
+
+### The ten domain categories
+
+| Category | Domains / prefixes | Purpose | Default | ~Tools |
+| --- | --- | --- | --- | --- |
+| `blocks` | `block_*`, `block_entity_*` | Read, place, fill, clone, scan, render, and erode blocks and block-entity NBT | ON | 20 |
+| `structures` | `structure_*` | Save / load / list named structure templates and their files | ON | 9 |
+| `world` | `level_*`, `worldborder_*` | Time, weather, biomes, dimensions, spawn, features, particles, explosions, the world border | ON | 31 |
+| `entities` | `entity_*` | Summon, query, teleport, tag, damage, effect, and edit-NBT for non-player entities | ON | 17 |
+| `players` | `player_*`, `player_screen_*` | Inspect and act on connected players: inventory, XP, gamemode, messages, kick | opt-in | 16 |
+| `items` | `inventory_*`, `itemstack_*`, `item_modify_*` | Inventory slots, item-stack inspection, container item edits | ON | 9 |
+| `gameplay` | `scoreboard_*`, `bossbar_*`, `advancement_*` | Scoreboards, teams, boss bars, advancements — the game-state logic layer | opt-in | 30 |
+| `scripting` | `command_*`, `function_*`, `schedule_*`, `events_*`, `data_storage_*`, `data_attachment_*` | Commands, datapack functions, scheduled work, event subscriptions, custom data | ON | 21 |
+| `registries` | `recipe_*`, `loot_table_*`, `tag_*`, `content_registry_*`, `resource_loader_*`, `resource_condition_*`, `fluid_storage_*` | Recipe / loot / tag / resource lookups and content-registry edits | opt-in | 21 |
+| `server` | `server_*`, `datapack_*` | Server status, MOTD, world saves, resource reloads, datapack enable/disable | ON | 9 |
+
+Counts are the live 26.1.2 surface; earlier Minecraft targets register fewer (a tool gated on a
+Fabric module or MC version drops out before categorization). Run `tools/list` against your build
+for the exact set.
+
+### What you get with no config
+
+An empty config (or no config file at all) registers the **lean default set: about 102 of the 183
+tools.** The rule is simple:
+
+- **Default-ON domains:** `blocks`, `structures`, `world`, `entities`, `items`, `scripting`,
+  `server`. The builder-and-operator core.
+- **Opt-in domains:** `players`, `gameplay`, `registries`. Useful, but noise for most world-building
+  sessions — turn them on when you need them.
+- **Default access cap:** `max_access = write`. Read and write tools register; **admin tools do
+  not.**
+
+So the default surface is every read/write tool in the seven ON domains. The other 81 stay off until
+you ask for them: 67 in the three opt-in domains (`players` 16 + `gameplay` 30 + `registries` 21)
+and 14 admin tools that sit in ON domains but are suppressed by the `write` cap.
+
+The 15 admin-tagged tools (all opt-in via `max_access: admin`):
+
+```
+worldborder_set_size        worldborder_add_size         worldborder_set_center
+worldborder_set_warning_blocks  worldborder_set_warning_time
+worldborder_set_damage_amount   worldborder_set_damage_buffer
+level_set_difficulty        level_set_game_rule          level_create_explosion
+command_register            server_reload_resources
+datapack_enable             datapack_disable             player_kick
+```
+
+Fourteen of those sit in default-ON domains (only `player_kick` is in the opt-in `players` domain),
+so on a default config they are present-but-suppressed by the `write` cap. Raise the cap to `admin`
+and they appear.
+
+### How the filter resolves
+
+For each supported tool, in order:
+
+1. **Domain allow-list.** If `included_categories` is non-empty, keep the tool only if its category
+   is listed. Otherwise keep it only if its category is default-ON.
+2. **Domain exclude.** Drop the tool if its category is in `excluded_categories`.
+3. **Access cap.** Drop the tool if its access rank exceeds `max_access` (`read` < `write` <
+   `admin`). `exclude_write_tools: true` is the legacy spelling of `max_access: read`.
+
+`included_categories` is an outright replacement for the default-ON set — list it and the ON/opt-in
+distinction no longer applies; you get exactly the categories you named (still subject to the
+exclude list and the access cap).
+
+### Config recipes
+
+**(a) World-builder — the default.** No config needed. You get the ~102-tool core: build blocks and
+structures, shape the world, summon and edit entities, move items, run commands and functions, save
+the server. No admin reshaping, no scoreboard/registry clutter.
+
+```json
+{}
+```
+
+**(b) Read-only monitor.** Inspection only — nothing mutates. Good for an observer agent or a
+dashboard.
+
+```json
+{
+  "max_access": "read"
+}
+```
+
+(`{"exclude_write_tools": true}` does the same thing.)
+
+**(c) Datapack developer.** The default core plus the gameplay and registry surfaces for
+advancements, loot, recipes, and tags. Still capped at `write`.
+
+```json
+{
+  "included_categories": [
+    "blocks", "structures", "world", "entities", "items",
+    "scripting", "server", "gameplay", "registries"
+  ]
+}
+```
+
+There is no "default-ON plus these two" shorthand — the allow-list is all-or-nothing, so when you
+need an opt-in domain, name the whole set you want (the seven ON domains plus your additions), as
+above.
+
+**(d) Full operator.** Every category, every access level — the entire 183-tool surface, including
+admin/destructive tools.
+
+```json
+{
+  "included_categories": [
+    "blocks", "structures", "world", "entities", "players", "items",
+    "gameplay", "scripting", "registries", "server"
+  ],
+  "max_access": "admin"
+}
+```
+
+This is also how you **restore the old behavior.** Before this change an empty config registered all
+183 tools; now an empty config gives the lean ~102. The snippet above brings the full surface back.
+
+### The `command_execute` caveat
+
+`command_execute` (and `command_execute_as`) are tagged **write**, not admin, because they are the
+workhorse of almost every session. But a command can do anything the server console can —
+`/difficulty`, `/worldborder`, `/gamerule`, `/datapack`, `/stop`. The access cap classifies the MCP
+tool, not the command string it carries, so `max_access: write` is **not** an airtight sandbox: an
+agent with `command_execute` can reach admin-level effects by typing the command directly.
+
+For a genuinely hardened deployment, drop the command surface entirely — exclude `scripting`, or use
+an allow-list that omits it:
+
+```json
+{
+  "included_categories": ["blocks", "structures", "world", "entities", "items", "server"],
+  "max_access": "write"
+}
+```
+
+The category and access filters limit what an agent can *easily* do and shrink the tool list it
+reasons over; they are not a substitute for the network-level controls (loopback bind, bearer auth,
+Host/Origin validation) described in [docs/security.md](docs/security.md).
 
 ## Version compatibility
 

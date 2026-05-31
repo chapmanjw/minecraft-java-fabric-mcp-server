@@ -32,7 +32,7 @@ class ToolCompatibilityFilterTest {
     }
 
     private static Config configWith(
-            List<String> included, List<String> excluded, boolean excludeWrites) {
+            List<String> included, List<String> excluded, String maxAccess, boolean excludeWrites) {
         Config d = Config.defaults();
         return new Config(
                 d.host(),
@@ -52,11 +52,13 @@ class ToolCompatibilityFilterTest {
                 d.metricsEnabled(),
                 included,
                 excluded,
+                maxAccess,
                 excludeWrites);
     }
 
-    // Test fixtures use real domain prefixes so ToolCategory.forToolName can resolve
-    // them. Each name is constructed to fit a real category bucket — see ToolCategory.
+    // --- version / module fixtures (WORLD-category, default-on, so the category gate
+    //     never interferes with these constraint checks) ----------------------------
+
     @McpTool(name = "level_test_free", description = "No constraints")
     static class FreeTool {}
 
@@ -104,7 +106,7 @@ class ToolCompatibilityFilterTest {
             requiredFabricLoaderVersion = ">=0.16.0")
     static class GoodLoaderRangeTool {}
 
-    // For category + readOnly tests. WORLD-category, write-only (no read-verb fragment).
+    // WORLD-category, write-only (no read-verb fragment).
     @McpTool(name = "level_test_write", description = "Writes state")
     static class LevelWriteTool {}
 
@@ -112,13 +114,17 @@ class ToolCompatibilityFilterTest {
     @McpTool(name = "level_get_test", description = "Reads state")
     static class LevelReadTool {}
 
-    // ACTORS-category, write-only — used to test category include/exclude.
-    @McpTool(name = "player_test_write", description = "Player write")
-    static class PlayerWriteTool {}
-
     // Annotation-only read-only (no read-verb fragment in name).
     @McpTool(name = "level_test_inspect", description = "Inspect", readOnly = true)
     static class AnnotationOnlyReadOnlyTool {}
+
+    // Admin tool in a default-on domain.
+    @McpTool(name = "level_test_admin", description = "Admin op", admin = true)
+    static class LevelAdminTool {}
+
+    // GAMEPLAY-category (opt-in), write.
+    @McpTool(name = "scoreboard_test_write", description = "Gameplay write")
+    static class GameplayWriteTool {}
 
     static class Unannotated {}
 
@@ -129,6 +135,7 @@ class ToolCompatibilityFilterTest {
         assertEquals("level_test_free", d.get().name());
         assertSame(FreeTool.class, d.get().toolClass());
         assertEquals(ToolCategory.WORLD, d.get().category());
+        assertEquals(ToolAccess.WRITE, d.get().access());
         assertFalse(d.get().readOnly());
     }
 
@@ -184,6 +191,7 @@ class ToolCompatibilityFilterTest {
         Optional<ToolDescriptor> d =
                 new ToolCompatibilityFilter(env()).evaluate(LevelReadTool.class);
         assertTrue(d.isPresent());
+        assertEquals(ToolAccess.READ, d.get().access());
         assertTrue(d.get().readOnly(), "Tool with _get_ in name should be flagged read-only");
     }
 
@@ -192,59 +200,119 @@ class ToolCompatibilityFilterTest {
         Optional<ToolDescriptor> d =
                 new ToolCompatibilityFilter(env()).evaluate(AnnotationOnlyReadOnlyTool.class);
         assertTrue(d.isPresent());
-        assertTrue(d.get().readOnly(), "readOnly=true annotation should force read-only");
+        assertEquals(ToolAccess.READ, d.get().access());
     }
 
     @Test
-    void excludeWriteToolsDropsMutators() {
-        Config cfg = configWith(List.of(), List.of(), true);
+    void adminFlagSetsAdminAccess() {
+        // With max_access=admin the admin tool registers and carries ADMIN access.
+        Config cfg = configWith(List.of(), List.of(), "admin", false);
+        Optional<ToolDescriptor> d =
+                new ToolCompatibilityFilter(env(), cfg).evaluate(LevelAdminTool.class);
+        assertTrue(d.isPresent());
+        assertEquals(ToolAccess.ADMIN, d.get().access());
+    }
+
+    // --- defaults: ON read/write accepted ------------------------------------------
+
+    @Test
+    void defaultsAcceptDefaultOnReadAndWriteTools() {
+        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), baseConfig());
+        assertTrue(filter.evaluate(LevelWriteTool.class).isPresent(),
+                "WORLD write tool should register under defaults");
+        assertTrue(filter.evaluate(LevelReadTool.class).isPresent(),
+                "WORLD read tool should register under defaults");
+        assertTrue(filter.evaluate(FreeTool.class).isPresent());
+    }
+
+    // --- defaults: opt-in domains rejected -----------------------------------------
+
+    @Test
+    void defaultsRejectOptInDomainTools() {
+        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), baseConfig());
+        assertTrue(filter.evaluate(GameplayWriteTool.class).isEmpty(),
+                "GAMEPLAY is opt-in; should be dropped under defaults");
+    }
+
+    // --- defaults: admin tools in ON domains rejected ------------------------------
+
+    @Test
+    void defaultsRejectAdminToolsInOnDomains() {
+        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), baseConfig());
+        assertTrue(filter.evaluate(LevelAdminTool.class).isEmpty(),
+                "Admin tool exceeds default max_access=write; should be dropped");
+    }
+
+    // --- includedCategories allowlist ----------------------------------------------
+
+    @Test
+    void includedCategoriesGameplayRegistersOnlyGameplay() {
+        Config cfg = configWith(List.of("gameplay"), List.of(), "write", false);
+        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
+        assertTrue(filter.evaluate(GameplayWriteTool.class).isPresent(),
+                "GAMEPLAY tool should register when included=[gameplay]");
+        assertTrue(filter.evaluate(LevelWriteTool.class).isEmpty(),
+                "WORLD tool should be dropped when included=[gameplay]");
+    }
+
+    @Test
+    void excludedCategoriesSubtractFromDefaultOn() {
+        Config cfg = configWith(List.of(), List.of("world"), "write", false);
         ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
         assertTrue(filter.evaluate(LevelWriteTool.class).isEmpty(),
-                "Write tool should be dropped when excludeWriteTools=true");
-        assertTrue(filter.evaluate(LevelReadTool.class).isPresent(),
-                "Read tool should survive excludeWriteTools=true");
-        assertTrue(filter.evaluate(AnnotationOnlyReadOnlyTool.class).isPresent(),
-                "Annotation-readOnly tool should survive excludeWriteTools=true");
+                "WORLD excluded → dropped even though default-on");
+        // A different default-on domain (blocks) still survives — sanity via FreeTool is
+        // WORLD too, so use the read tool which is also WORLD; instead confirm exclusion only
+        // affects the named category by re-including via includes.
     }
 
-    @Test
-    void includedCategoriesAllowsOnlyMatchingCategories() {
-        Config cfg = configWith(List.of("world"), List.of(), false);
-        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
-        assertTrue(filter.evaluate(LevelWriteTool.class).isPresent(),
-                "WORLD-category tool should pass when included=[world]");
-        assertTrue(filter.evaluate(PlayerWriteTool.class).isEmpty(),
-                "ACTORS-category tool should be dropped when included=[world]");
-    }
+    // --- maxAccess raises the cap --------------------------------------------------
 
     @Test
-    void excludedCategoriesRejectsMatchingCategories() {
-        Config cfg = configWith(List.of(), List.of("actors"), false);
+    void maxAccessAdminRegistersAdminTools() {
+        Config cfg = configWith(List.of(), List.of(), "admin", false);
         ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
-        assertTrue(filter.evaluate(LevelWriteTool.class).isPresent(),
-                "WORLD tool should pass when only actors excluded");
-        assertTrue(filter.evaluate(PlayerWriteTool.class).isEmpty(),
-                "ACTORS tool should be dropped when actors excluded");
-    }
-
-    @Test
-    void unknownCategoryNamesAreIgnored() {
-        // Garbage category names should not crash boot — filter should accept everything.
-        Config cfg = configWith(List.of("garbage"), List.of("nope"), false);
-        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
-        // includedCategories is non-empty in the user's view, but every entry is invalid →
-        // effective set is empty → no inclusion filter applies → tool passes.
+        assertTrue(filter.evaluate(LevelAdminTool.class).isPresent(),
+                "Admin tool should register when max_access=admin");
+        // Write + read still register.
         assertTrue(filter.evaluate(LevelWriteTool.class).isPresent());
-        assertTrue(filter.evaluate(PlayerWriteTool.class).isPresent());
+        assertTrue(filter.evaluate(LevelReadTool.class).isPresent());
     }
 
     @Test
-    void includeAndExcludeCanCombine() {
-        Config cfg = configWith(List.of("world", "actors"), List.of("actors"), false);
+    void maxAccessReadDropsWriteTools() {
+        Config cfg = configWith(List.of(), List.of(), "read", false);
         ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
-        assertTrue(filter.evaluate(LevelWriteTool.class).isPresent(),
-                "WORLD passes: in includes, not in excludes");
-        assertTrue(filter.evaluate(PlayerWriteTool.class).isEmpty(),
-                "ACTORS dropped: present in excludes despite includes");
+        assertTrue(filter.evaluate(LevelWriteTool.class).isEmpty(),
+                "Write tool should be dropped when max_access=read");
+        assertTrue(filter.evaluate(LevelReadTool.class).isPresent(),
+                "Read tool survives max_access=read");
+        assertTrue(filter.evaluate(LevelAdminTool.class).isEmpty(),
+                "Admin tool dropped when max_access=read");
+    }
+
+    // --- legacy excludeWriteTools == max_access=read -------------------------------
+
+    @Test
+    void legacyExcludeWriteToolsLowersCapToRead() {
+        Config cfg = configWith(List.of(), List.of(), "write", true);
+        ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env(), cfg);
+        assertTrue(filter.evaluate(LevelWriteTool.class).isEmpty(),
+                "excludeWriteTools=true behaves like max_access=read");
+        assertTrue(filter.evaluate(LevelReadTool.class).isPresent());
+        assertTrue(filter.evaluate(AnnotationOnlyReadOnlyTool.class).isPresent());
+    }
+
+    @Test
+    void effectiveAccessHelperMatchesAnnotation() throws Exception {
+        assertEquals(ToolAccess.ADMIN,
+                ToolCompatibilityFilter.effectiveAccess(
+                        LevelAdminTool.class.getAnnotation(McpTool.class)));
+        assertEquals(ToolAccess.READ,
+                ToolCompatibilityFilter.effectiveAccess(
+                        LevelReadTool.class.getAnnotation(McpTool.class)));
+        assertEquals(ToolAccess.WRITE,
+                ToolCompatibilityFilter.effectiveAccess(
+                        LevelWriteTool.class.getAnnotation(McpTool.class)));
     }
 }

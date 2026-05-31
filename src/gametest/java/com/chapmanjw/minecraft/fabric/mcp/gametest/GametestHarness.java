@@ -54,7 +54,7 @@ public final class GametestHarness {
         McEnvironment env = McEnvironment.capture();
         ToolRegistry registry = ToolRegistration.buildRegistry(new ToolCompatibilityFilter(env));
 
-        ToolContext ctx = new ToolContext(adapter, exec, eventBus, config, MAPPER, registry);
+        ToolContext ctx = new ToolContext(adapter, exec, eventBus, config, MAPPER, registry, null);
 
         McpDispatcher dispatcher =
                 new McpDispatcher(

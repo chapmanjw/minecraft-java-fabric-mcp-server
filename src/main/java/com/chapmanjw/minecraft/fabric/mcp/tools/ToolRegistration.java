@@ -42,6 +42,7 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListBiomesInDimension
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListDimensionsTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListGameRulesTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaceFeatureTool;
+import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaceFeaturesBatchTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaySoundTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelSetDifficultyTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelSetGameRuleTool;
@@ -109,6 +110,7 @@ public final class ToolRegistration {
                     LevelGetBiomeAtTool.class,
                     LevelListBiomesInDimensionTool.class,
                     LevelPlaceFeatureTool.class,
+                    LevelPlaceFeaturesBatchTool.class,
                     LevelFillBiomeTool.class,
                     // block
                     BlockTools.GetState.class,
@@ -120,6 +122,11 @@ public final class ToolRegistration {
                     BlockTools.ScanRegion.class,
                     BlockTools.FillBatch.class,
                     BlockTools.FillColumns.class,
+                    BlockTools.FillColumnsStrata.class,
+                    BlockTools.ErodeRegion.class,
+                    BlockTools.HydraulicErodeStart.class,
+                    BlockTools.HydraulicErodeStatus.class,
+                    BlockTools.HydraulicErodeResult.class,
                     BlockTools.ScanSummary.class,
                     BlockTools.GetMapColor.class,
                     BlockTools.RenderRegion.class,

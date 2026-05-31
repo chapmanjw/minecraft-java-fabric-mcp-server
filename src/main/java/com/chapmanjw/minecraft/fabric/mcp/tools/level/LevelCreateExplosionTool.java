@@ -9,7 +9,7 @@ import com.chapmanjw.minecraft.fabric.mcp.protocol.ToolResult;
 import com.chapmanjw.minecraft.fabric.mcp.tools.BaseTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 
-@McpTool(name = "level_create_explosion", description = "Creates an explosion at a position.")
+@McpTool(name = "level_create_explosion", description = "Creates an explosion at a position.", admin = true)
 public final class LevelCreateExplosionTool extends BaseTool {
 
     private static final JsonNode SCHEMA =

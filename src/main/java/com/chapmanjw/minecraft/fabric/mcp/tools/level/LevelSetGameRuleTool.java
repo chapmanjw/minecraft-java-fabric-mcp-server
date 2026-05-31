@@ -11,7 +11,8 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 @McpTool(
         name = "level_set_game_rule",
         description = "Sets a game rule. Value parsing follows vanilla /gamerule semantics.",
-        requiredFabricModules = {"fabric-game-rule-api-v1"})
+        requiredFabricModules = {"fabric-game-rule-api-v1"},
+        admin = true)
 public final class LevelSetGameRuleTool extends BaseTool {
 
     private static final JsonNode SCHEMA =

@@ -256,7 +256,7 @@ public final class PlayerTools {
         }
     }
 
-    @McpTool(name = "player_kick", description = "Disconnects a player with an optional reason.")
+    @McpTool(name = "player_kick", description = "Disconnects a player with an optional reason.", admin = true)
     public static final class Kick extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()

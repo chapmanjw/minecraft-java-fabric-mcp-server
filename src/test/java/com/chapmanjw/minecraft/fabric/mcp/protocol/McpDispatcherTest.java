@@ -30,9 +30,11 @@ class McpDispatcherTest {
         registry.register(
                 new ToolDescriptor(
                         "echo", "Echo the input", "", "", java.util.List.of(), "",
-                        ToolCategory.GAMEPLAY, false, EchoTool.class),
+                        ToolCategory.GAMEPLAY,
+                        com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.WRITE,
+                        EchoTool.class),
                 new EchoTool());
-        ToolContext ctx = new ToolContext(null, null, null, null, mapper, null);
+        ToolContext ctx = new ToolContext(null, null, null, null, mapper, null, null);
         dispatcher =
                 new McpDispatcher(
                         registry,
@@ -212,13 +214,13 @@ class McpDispatcherTest {
                 new com.chapmanjw.minecraft.fabric.mcp.compat.ToolDescriptor(
                         "with_data", "throws with data", "", "", java.util.List.of(), "",
                         com.chapmanjw.minecraft.fabric.mcp.compat.ToolCategory.GAMEPLAY,
-                        false,
+                        com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.WRITE,
                         ThrowsWithDataTool.class),
                 new ThrowsWithDataTool(payload));
         McpDispatcher d2 =
                 new McpDispatcher(
                         r2,
-                        new ToolContext(null, null, null, null, mapper, null),
+                        new ToolContext(null, null, null, null, mapper, null, null),
                         mapper,
                         new McpDispatcher.ServerInfo("t", "0", null));
         JsonNode req =
@@ -237,13 +239,13 @@ class McpDispatcherTest {
                         "failer", "tool that returns isError=true", "", "",
                         java.util.List.of(), "",
                         com.chapmanjw.minecraft.fabric.mcp.compat.ToolCategory.GAMEPLAY,
-                        false,
+                        com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.WRITE,
                         FailerTool.class),
                 new FailerTool());
         McpDispatcher d2 =
                 new McpDispatcher(
                         r2,
-                        new ToolContext(null, null, null, null, mapper, null),
+                        new ToolContext(null, null, null, null, mapper, null, null),
                         mapper,
                         new McpDispatcher.ServerInfo("t", "0", null));
         JsonNode req =
@@ -263,13 +265,13 @@ class McpDispatcherTest {
                 new com.chapmanjw.minecraft.fabric.mcp.compat.ToolDescriptor(
                         "boom", "throws", "", "", java.util.List.of(), "",
                         com.chapmanjw.minecraft.fabric.mcp.compat.ToolCategory.GAMEPLAY,
-                        false,
+                        com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.WRITE,
                         ExplodingTool.class),
                 new ExplodingTool());
         McpDispatcher d2 =
                 new McpDispatcher(
                         r2,
-                        new ToolContext(null, null, null, null, mapper, null),
+                        new ToolContext(null, null, null, null, mapper, null, null),
                         mapper,
                         new McpDispatcher.ServerInfo("t", "0", null));
         JsonNode req =

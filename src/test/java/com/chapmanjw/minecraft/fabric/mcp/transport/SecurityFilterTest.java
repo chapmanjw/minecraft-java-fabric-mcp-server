@@ -93,6 +93,7 @@ class SecurityFilterTest {
                         c.metricsEnabled(),
                         c.includedCategories(),
                         c.excludedCategories(),
+                        c.maxAccess(),
                         c.excludeWriteTools());
         SecurityFilter filter = new SecurityFilter(withOrigin);
         SecurityFilter.Decision d =
@@ -127,6 +128,7 @@ class SecurityFilterTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         SecurityFilter filter = new SecurityFilter(c);
 

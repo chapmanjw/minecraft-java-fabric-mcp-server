@@ -8,7 +8,7 @@ import com.chapmanjw.minecraft.fabric.mcp.protocol.ToolResult;
 import com.chapmanjw.minecraft.fabric.mcp.tools.BaseTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 
-@McpTool(name = "level_set_difficulty", description = "Sets the world-wide difficulty.")
+@McpTool(name = "level_set_difficulty", description = "Sets the world-wide difficulty.", admin = true)
 public final class LevelSetDifficultyTool extends BaseTool {
 
     private static final JsonNode SCHEMA =

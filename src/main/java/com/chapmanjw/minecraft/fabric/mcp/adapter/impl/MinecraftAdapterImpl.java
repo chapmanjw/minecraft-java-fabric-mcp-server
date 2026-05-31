@@ -360,6 +360,27 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     }
 
     @Override
+    public long blockFillColumnsStrata(String dimensionId, ColumnStrataFill spec) {
+        return blockOps.blockFillColumnsStrata(dimensionId, spec);
+    }
+
+    @Override
+    public ErodeResult terrainErodeRegion(String dimensionId, ErodeSpec spec) {
+        return blockOps.terrainErodeRegion(dimensionId, spec);
+    }
+
+    @Override
+    public int[] terrainSurveyHeights(
+            String dimensionId, int originX, int originZ, int width, int length) {
+        return blockOps.terrainSurveyHeights(dimensionId, originX, originZ, width, length);
+    }
+
+    @Override
+    public ErodedApplyResult terrainApplyErodedColumns(String dimensionId, ErodedApply spec) {
+        return blockOps.terrainApplyErodedColumns(dimensionId, spec);
+    }
+
+    @Override
     public List<BlockMatch> blockScanRegion(
             String dimensionId, BoundingBox box, String matchBlockId, int limit) {
         return blockOps.blockScanRegion(dimensionId, box, matchBlockId, limit);

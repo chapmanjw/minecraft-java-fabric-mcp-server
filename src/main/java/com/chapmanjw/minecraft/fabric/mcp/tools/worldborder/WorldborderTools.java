@@ -57,7 +57,7 @@ public final class WorldborderTools {
         }
     }
 
-    @McpTool(name = "worldborder_set_size", description = "Sets the world border size, optionally over time.")
+    @McpTool(name = "worldborder_set_size", description = "Sets the world border size, optionally over time.", admin = true)
     public static final class SetSize extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -91,7 +91,7 @@ public final class WorldborderTools {
         }
     }
 
-    @McpTool(name = "worldborder_add_size", description = "Adds a delta to the current world border size.")
+    @McpTool(name = "worldborder_add_size", description = "Adds a delta to the current world border size.", admin = true)
     public static final class AddSize extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -125,7 +125,7 @@ public final class WorldborderTools {
         }
     }
 
-    @McpTool(name = "worldborder_set_center", description = "Sets the world border center.")
+    @McpTool(name = "worldborder_set_center", description = "Sets the world border center.", admin = true)
     public static final class SetCenter extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -162,7 +162,8 @@ public final class WorldborderTools {
 
     @McpTool(
             name = "worldborder_set_warning_blocks",
-            description = "Sets the warning distance in blocks.")
+            description = "Sets the warning distance in blocks.",
+            admin = true)
     public static final class SetWarningBlocks extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -197,7 +198,8 @@ public final class WorldborderTools {
 
     @McpTool(
             name = "worldborder_set_warning_time",
-            description = "Sets the warning time in seconds.")
+            description = "Sets the warning time in seconds.",
+            admin = true)
     public static final class SetWarningTime extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -232,7 +234,8 @@ public final class WorldborderTools {
 
     @McpTool(
             name = "worldborder_set_damage_amount",
-            description = "Sets the damage per block dealt to players outside the border.")
+            description = "Sets the damage per block dealt to players outside the border.",
+            admin = true)
     public static final class SetDamageAmount extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -267,7 +270,8 @@ public final class WorldborderTools {
 
     @McpTool(
             name = "worldborder_set_damage_buffer",
-            description = "Sets the safe-zone (damage buffer) distance outside the border.")
+            description = "Sets the safe-zone (damage buffer) distance outside the border.",
+            admin = true)
     public static final class SetDamageBuffer extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()

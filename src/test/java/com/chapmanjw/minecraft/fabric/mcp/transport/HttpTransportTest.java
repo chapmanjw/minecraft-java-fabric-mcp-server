@@ -63,6 +63,7 @@ class HttpTransportTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         transport = new HttpTransport(config);
     }
@@ -163,6 +164,7 @@ class HttpTransportTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         transport.stop();
         transport = new HttpTransport(tight);

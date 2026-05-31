@@ -288,12 +288,67 @@ final class DataOps {
     }
 
     boolean datapackEnable(String id) {
-        // /datapack enable is a void setter; reports 0 on the happy path.
-        return AdapterContext.commandOk(ctx.commandExecute("datapack enable " + id));
+        // The previous implementation ran "/datapack enable <id>". DataPackCommand.enablePack
+        // throws ERROR_PACK_FEATURES_NOT_ENABLED for any pack that requests feature flags the
+        // world has not enabled (the experimental packs minecart_improvements, trade_rebalance,
+        // redstone_experiments). commandExecute swallows that as a generic failure, so the tool
+        // reported a bare "failed" with no explanation.
+        //
+        // Fix: drive the PackRepository directly. For an ordinary disabled pack this selects it
+        // and reloads resources (the same effect as the command). For a feature-flag pack we
+        // detect the unmet requirement and throw a clear, accurate error: those flags are baked
+        // into the world's WorldDataConfiguration at creation time and cannot be turned on at
+        // runtime, so the pack genuinely cannot be enabled on an existing world.
+        MinecraftServer s = ctx.requireServer();
+        net.minecraft.server.packs.repository.PackRepository repo = s.getPackRepository();
+        net.minecraft.server.packs.repository.Pack pack = repo.getPack(id);
+        if (pack == null) {
+            throw new AdapterException("Datapack not found: " + id);
+        }
+        java.util.Collection<String> selected = repo.getSelectedIds();
+        if (selected.contains(id)) {
+            // Already enabled — vanilla treats this as an error, but for the adapter it's a no-op
+            // success (the requested end state already holds).
+            return true;
+        }
+        net.minecraft.world.flag.FeatureFlagSet requested = pack.getRequestedFeatures();
+        net.minecraft.world.flag.FeatureFlagSet worldEnabled = s.getWorldData().enabledFeatures();
+        if (!requested.isEmpty() && !requested.isSubsetOf(worldEnabled)) {
+            // printMissingFlags(registry, A, B) renders the readable names in A that are absent
+            // from B — i.e. the required-but-unmet flags. Using the registry avoids leaking the
+            // FeatureFlagSet's (mapping-dependent) toString into the error message.
+            String missing =
+                    net.minecraft.world.flag.FeatureFlags.printMissingFlags(
+                            net.minecraft.world.flag.FeatureFlags.REGISTRY, requested, worldEnabled);
+            throw new AdapterException(
+                    "Datapack '" + id + "' requires experimental feature flags ("
+                            + missing
+                            + ") that are not enabled in this world. Feature flags are fixed when"
+                            + " the world is created and cannot be enabled at runtime, so this pack"
+                            + " can only be activated by re-creating the world with those features"
+                            + " selected.");
+        }
+        // Preserve existing selection order and append the newly-enabled pack.
+        java.util.List<String> next = new java.util.ArrayList<>(selected);
+        next.add(id);
+        repo.setSelected(next);
+        // Apply the new selection. reloadResources is async (CompletableFuture<Void>); mirror
+        // serverReloadResources and fire it without blocking the tool call.
+        try {
+            s.reloadResources(repo.getSelectedIds());
+        } catch (Exception e) {
+            // Roll back the selection so a failed reload doesn't leave the repository in a
+            // half-applied state, then surface the cause.
+            repo.setSelected(selected);
+            throw new AdapterException("Failed to enable datapack '" + id + "': " + e.getMessage(), e);
+        }
+        return true;
     }
 
     boolean datapackDisable(String id) {
-        // /datapack disable is a void setter; reports 0 on the happy path.
+        // /datapack disable is a void setter; reports 0 on the happy path. Left on the command
+        // path because vanilla's disable carries guards we want to honour (e.g. it refuses to
+        // disable a pack force-required by an enabled feature flag).
         return AdapterContext.commandOk(ctx.commandExecute("datapack disable " + id));
     }
 }

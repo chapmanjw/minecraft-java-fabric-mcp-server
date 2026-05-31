@@ -15,26 +15,48 @@ import java.util.Optional;
  * {@link #DOMAIN_TO_CATEGORY}. The mapping is deliberately closed: a domain not in
  * the map raises an exception at startup so we don't silently miscategorize tools.
  *
- * <p>The five categories chosen here align with the natural operator-vs-builder
- * mental model: builders care mostly about {@link #WORLD} + {@link #ACTORS};
- * operators care about {@link #SERVER} + {@link #GAMEPLAY}; data-driven workflows
- * use {@link #REGISTRIES}.
+ * <p>The ten categories track the underlying Minecraft subsystems one-for-one so an
+ * operator can reason about the surface without learning a separate taxonomy. Seven
+ * are on by default ({@link #enabledByDefault()}); the remaining three
+ * ({@link #PLAYERS}, {@link #GAMEPLAY}, {@link #REGISTRIES}) are opt-in so a fresh
+ * install exposes a lean, builder-focused surface.
  */
 public enum ToolCategory {
 
-    /** Block / structure / level / worldborder — anything geometry- or environment-shaped. */
+    /** Blocks and block entities — geometry and the tile-data behind it. */
+    BLOCKS,
+
+    /** Saved/loaded structure templates and the structure block file store. */
+    STRUCTURES,
+
+    /** Level state and the world border — time, weather, biomes, dimensions, spawn. */
     WORLD,
 
-    /** Entity / player / inventory / itemstack — anything that moves or holds items. */
-    ACTORS,
+    /** Entities — summon, query, move, damage, effects, tags. */
+    ENTITIES,
 
-    /** Game-state logic: scoreboards, bossbars, advancements, schedules, functions, commands, events. */
+    /** Players — info, inventory access, messaging, gamemode, spawn, screens. */
+    PLAYERS,
+
+    /** Items — inventory slots, item stacks, item modifiers. */
+    ITEMS,
+
+    /** Game-state logic: scoreboards, bossbars, advancements. */
     GAMEPLAY,
 
-    /** Read or configure registry data: recipes, loot, tags, content registries, fluid storage, data attachments. */
+    /**
+     * Command/function automation: commands, functions, schedules, events, and the
+     * data storage / attachment stores agents script against.
+     */
+    SCRIPTING,
+
+    /**
+     * Read or configure registry data: recipes, loot, tags, content registries,
+     * resource loading/conditions, fluid storage.
+     */
     REGISTRIES,
 
-    /** Server lifecycle / admin: motd, save, reload, datapacks. */
+    /** Server lifecycle / admin: status, motd, save, reload, datapacks. */
     SERVER;
 
     /**
@@ -44,37 +66,42 @@ public enum ToolCategory {
      * ({@code block_entity_*}, {@code content_registry_*}, {@code data_storage_*}).
      */
     private static final Map<String, ToolCategory> DOMAIN_TO_CATEGORY = Map.<String, ToolCategory>ofEntries(
+            // blocks
+            Map.entry("block", BLOCKS),
+            Map.entry("block_entity", BLOCKS),
+            // structures
+            Map.entry("structure", STRUCTURES),
             // world
-            Map.entry("block", WORLD),
-            Map.entry("block_entity", WORLD),
             Map.entry("level", WORLD),
-            Map.entry("structure", WORLD),
             Map.entry("worldborder", WORLD),
-            // actors
-            Map.entry("entity", ACTORS),
-            Map.entry("player", ACTORS),
-            Map.entry("player_screen", ACTORS),
-            Map.entry("inventory", ACTORS),
-            Map.entry("itemstack", ACTORS),
-            Map.entry("item_modify", ACTORS),
+            // entities
+            Map.entry("entity", ENTITIES),
+            // players
+            Map.entry("player", PLAYERS),
+            Map.entry("player_screen", PLAYERS),
+            // items
+            Map.entry("inventory", ITEMS),
+            Map.entry("itemstack", ITEMS),
+            Map.entry("item_modify", ITEMS),
             // gameplay
             Map.entry("scoreboard", GAMEPLAY),
             Map.entry("bossbar", GAMEPLAY),
             Map.entry("advancement", GAMEPLAY),
-            Map.entry("command", GAMEPLAY),
-            Map.entry("function", GAMEPLAY),
-            Map.entry("schedule", GAMEPLAY),
-            Map.entry("events", GAMEPLAY),
+            // scripting
+            Map.entry("command", SCRIPTING),
+            Map.entry("function", SCRIPTING),
+            Map.entry("schedule", SCRIPTING),
+            Map.entry("events", SCRIPTING),
+            Map.entry("data_storage", SCRIPTING),
+            Map.entry("data_attachment", SCRIPTING),
             // registries
-            Map.entry("content_registry", REGISTRIES),
-            Map.entry("loot_table", REGISTRIES),
             Map.entry("recipe", REGISTRIES),
+            Map.entry("loot_table", REGISTRIES),
             Map.entry("tag", REGISTRIES),
+            Map.entry("content_registry", REGISTRIES),
             Map.entry("resource_loader", REGISTRIES),
             Map.entry("resource_condition", REGISTRIES),
             Map.entry("fluid_storage", REGISTRIES),
-            Map.entry("data_storage", REGISTRIES),
-            Map.entry("data_attachment", REGISTRIES),
             // server
             Map.entry("server", SERVER),
             Map.entry("datapack", SERVER));
@@ -112,7 +139,7 @@ public enum ToolCategory {
     }
 
     /**
-     * Lookup a category by its lower-case wire name (e.g. {@code "world"}, {@code "actors"}).
+     * Lookup a category by its lower-case wire name (e.g. {@code "blocks"}, {@code "world"}).
      * Used by Config to parse user-supplied includes/excludes.
      */
     public static Optional<ToolCategory> fromWireName(String wireName) {
@@ -129,5 +156,17 @@ public enum ToolCategory {
     /** Stable lower-case identifier safe to use in config files and CLI args. */
     public String wireName() {
         return name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Whether this category is exposed when no {@code included_categories} allowlist is
+     * configured. The default-on set is the builder/operator core; {@link #PLAYERS},
+     * {@link #GAMEPLAY}, and {@link #REGISTRIES} are opt-in.
+     */
+    public boolean enabledByDefault() {
+        return switch (this) {
+            case BLOCKS, STRUCTURES, WORLD, ENTITIES, ITEMS, SCRIPTING, SERVER -> true;
+            case PLAYERS, GAMEPLAY, REGISTRIES -> false;
+        };
     }
 }

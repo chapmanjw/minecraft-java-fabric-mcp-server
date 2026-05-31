@@ -47,6 +47,7 @@ class SecurityFilterExtraTest {
                 false,
                 List.of(),
                 List.of(),
+                "write",
                 false);
     }
 
@@ -107,6 +108,7 @@ class SecurityFilterExtraTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         SecurityFilter filter = new SecurityFilter(c);
         var d =
@@ -140,6 +142,7 @@ class SecurityFilterExtraTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         SecurityFilter filter = new SecurityFilter(c);
         var d =
@@ -186,6 +189,7 @@ class SecurityFilterExtraTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         SecurityFilter filter = new SecurityFilter(c);
         HttpRequest r =
@@ -245,6 +249,7 @@ class SecurityFilterExtraTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         SecurityFilter filter = new SecurityFilter(c);
         HttpRequest r =

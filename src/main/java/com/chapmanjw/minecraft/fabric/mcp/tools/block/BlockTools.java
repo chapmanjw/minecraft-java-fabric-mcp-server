@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.chapmanjw.minecraft.fabric.mcp.adapter.MinecraftAdapter;
+import com.chapmanjw.minecraft.fabric.mcp.runtime.ErosionJob;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockSpec;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockStateInfo;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BoundingBox;
@@ -642,6 +643,542 @@ public final class BlockTools {
                         payload.put("blocks_set", set);
                         return ToolResult.ofToon(payload);
                     });
+        }
+    }
+
+    /**
+     * Strata-banded {@code block_fill_columns}: same per-column heightmap fill, but
+     * the deep mass below the subsurface is banded into geological strata instead of
+     * one stone block — the signature of canyons, mesas, and badlands. Bands run
+     * top→bottom; below the deepest band it is {@code base_stone}. Optional smooth
+     * low-frequency jitter wobbles the band boundaries so they are not dead-flat.
+     */
+    @McpTool(
+            name = "block_fill_columns_strata",
+            description =
+                    "Like block_fill_columns but bands the deep fill into geological strata (canyon /"
+                            + " mesa / badlands signature). Adds: strata[] of {block, thickness}"
+                            + " top->bottom, base_stone below the deepest band, optional"
+                            + " jitter_amplitude/jitter_freq for smooth non-flat band boundaries."
+                            + " Same 65,536-column cap; row-major arrays index xi*length+zi.")
+    public static final class FillColumnsStrata extends BaseTool {
+        private static final long MAX_COLUMNS = 65_536L;
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required(
+                                "origin",
+                                Schemas.object()
+                                        .description("World (x, z) of column index (0,0)")
+                                        .required("x", Schemas.integer("Origin X"))
+                                        .required("z", Schemas.integer("Origin Z"))
+                                        .build())
+                        .required("width", Schemas.integerBetween("Columns along X", 1, 65536))
+                        .required("length", Schemas.integerBetween("Columns along Z", 1, 65536))
+                        .required("floor_y", Schemas.integer("Bottom Y; strata fill from here up"))
+                        .required(
+                                "palette",
+                                Schemas.arrayOf(
+                                        "Block ids; surface/subsurface index into this",
+                                        Schemas.string("Block id")))
+                        .required("height", Schemas.arrayOf("Surface Y per column", Schemas.integer("Y")))
+                        .required(
+                                "surface",
+                                Schemas.arrayOf(
+                                        "Palette index of the surface block per column",
+                                        Schemas.integer("idx")))
+                        .required(
+                                "subsurface",
+                                Schemas.arrayOf(
+                                        "Palette index of the subsurface block per column",
+                                        Schemas.integer("idx")))
+                        .required(
+                                "strata",
+                                Schemas.arrayOf(
+                                        "Strata bands top->bottom, each {block, thickness}",
+                                        Schemas.object()
+                                                .required("block", Schemas.string("Band block id"))
+                                                .required(
+                                                        "thickness",
+                                                        Schemas.integerBetween(
+                                                                "Band thickness in blocks", 1, 256))
+                                                .build()))
+                        .required(
+                                "base_stone",
+                                Schemas.string("Block below the deepest band, e.g. minecraft:stone"))
+                        .optional(
+                                "subsurface_depth",
+                                Schemas.integerBetween("Subsurface thickness (default 3)", 0, 64))
+                        .optional("sea_level", Schemas.integer("Flood columns below this Y with water"))
+                        .optional(
+                                "water_index",
+                                Schemas.integer("Palette index for water (required if sea_level set)"))
+                        .optional(
+                                "jitter_amplitude",
+                                Schemas.integerBetween(
+                                        "Max band-boundary wobble in blocks (default 0)", 0, 32))
+                        .optional(
+                                "jitter_freq",
+                                Schemas.number("Spatial frequency of the band wobble (default 0.05)"))
+                        .build();
+
+        public FillColumnsStrata() {
+            super("block_fill_columns_strata");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            var origin = r.requireObject("origin");
+            int originX = origin.get("x").asInt();
+            int originZ = origin.get("z").asInt();
+            int width = r.requireInt("width");
+            int length = r.requireInt("length");
+            long columns = (long) width * length;
+            if (columns > MAX_COLUMNS) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_fill_columns_strata: " + columns + " columns exceed the " + MAX_COLUMNS
+                                + "-column cap; tile the heightmap");
+            }
+            int expected = (int) columns;
+            int floorY = r.requireInt("floor_y");
+            java.util.List<String> palette = readStringArray(r.requireArray("palette"), "palette");
+            int[] height = readIntArray(r.requireArray("height"), "height", expected);
+            int[] surface = readIntArray(r.requireArray("surface"), "surface", expected);
+            int[] subsurface = readIntArray(r.requireArray("subsurface"), "subsurface", expected);
+            int subDepth = r.optInt("subsurface_depth", 3);
+            int seaLevel = r.optInt("sea_level", Integer.MIN_VALUE);
+            int waterIndex = r.optInt("water_index", -1);
+            int jitterAmp = r.optInt("jitter_amplitude", 0);
+            double jitterFreq = r.optDouble("jitter_freq", 0.05);
+
+            JsonNode strataArr = r.requireArray("strata");
+            java.util.List<String> strataBlocks = new java.util.ArrayList<>(strataArr.size());
+            int[] strataThk = new int[strataArr.size()];
+            for (int i = 0; i < strataArr.size(); i++) {
+                JsonNode band = strataArr.get(i);
+                JsonNode b = band.get("block");
+                JsonNode t = band.get("thickness");
+                if (b == null || !b.isTextual() || t == null || !t.isIntegralNumber()) {
+                    throw new McpException(
+                            ErrorCodes.TOOL_INPUT_INVALID,
+                            "block_fill_columns_strata: strata["
+                                    + i
+                                    + "] must be {block:string, thickness:int}");
+                }
+                strataBlocks.add(b.asText());
+                strataThk[i] = t.intValue();
+            }
+            String baseStone = r.requireString("base_stone");
+
+            MinecraftAdapter.ColumnStrataFill spec =
+                    new MinecraftAdapter.ColumnStrataFill(
+                            originX, originZ, width, length, floorY, seaLevel, palette,
+                            subDepth, waterIndex, height, surface, subsurface,
+                            strataBlocks, strataThk, baseStone, jitterAmp, jitterFreq);
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        long set = context.adapter().blockFillColumnsStrata(dim, spec);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("columns", expected);
+                        payload.put("blocks_set", set);
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    @McpTool(
+            name = "block_erode_region",
+            description =
+                    "Thermal-erodes an existing terrain region: reads the live surface, runs talus"
+                            + " collapse, then re-materialises surface+subsurface to the new profile."
+                            + " dry_run reports max/mean height delta with no writes. protect_box (with"
+                            + " a smoothstep apron) shields built structures so terrain naturalises into"
+                            + " them. Synchronous; same 65,536-column cap.")
+    public static final class ErodeRegion extends BaseTool {
+        private static final long MAX_COLUMNS = 65_536L;
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required(
+                                "origin",
+                                Schemas.object()
+                                        .description("World (x, z) of column index (0,0)")
+                                        .required("x", Schemas.integer("Origin X"))
+                                        .required("z", Schemas.integer("Origin Z"))
+                                        .build())
+                        .required("width", Schemas.integerBetween("Columns along X", 1, 65536))
+                        .required("length", Schemas.integerBetween("Columns along Z", 1, 65536))
+                        .required("floor_y", Schemas.integer("Lowest Y erosion may carve to"))
+                        .optional(
+                                "surface",
+                                Schemas.string("Surface cap block (default minecraft:grass_block)"))
+                        .optional(
+                                "subsurface",
+                                Schemas.string("Subsurface block (default minecraft:dirt)"))
+                        .optional(
+                                "subsurface_depth",
+                                Schemas.integerBetween("Subsurface thickness (default 3)", 0, 64))
+                        .optional(
+                                "iterations",
+                                Schemas.integerBetween("Thermal sweeps (default 8)", 1, 200))
+                        .optional(
+                                "talus",
+                                Schemas.number("Max stable neighbour height diff in blocks (default 1.0)"))
+                        .optional(
+                                "strength",
+                                Schemas.number("Fraction of excess moved per sweep, 0..1 (default 0.5)"))
+                        .optional(
+                                "protect_box",
+                                Schemas.object()
+                                        .description("Region left uneroded (e.g. a built structure)")
+                                        .required("x0", Schemas.integer("Min X"))
+                                        .required("z0", Schemas.integer("Min Z"))
+                                        .required("x1", Schemas.integer("Max X"))
+                                        .required("z1", Schemas.integer("Max Z"))
+                                        .build())
+                        .optional(
+                                "apron",
+                                Schemas.integerBetween("Taper width around protect_box (default 0)", 0, 128))
+                        .optional(
+                                "dry_run",
+                                Schemas.bool("Report stats without writing blocks (default false)"))
+                        .build();
+
+        public ErodeRegion() {
+            super("block_erode_region");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            var origin = r.requireObject("origin");
+            int originX = origin.get("x").asInt();
+            int originZ = origin.get("z").asInt();
+            int width = r.requireInt("width");
+            int length = r.requireInt("length");
+            long columns = (long) width * length;
+            if (columns > MAX_COLUMNS) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_erode_region: " + columns + " columns exceed the " + MAX_COLUMNS
+                                + "-column cap; tile the region");
+            }
+            int floorY = r.requireInt("floor_y");
+            String surface = r.optString("surface", "minecraft:grass_block");
+            String subsurface = r.optString("subsurface", "minecraft:dirt");
+            int subDepth = r.optInt("subsurface_depth", 3);
+            int iterations = r.optInt("iterations", 8);
+            double talus = r.optDouble("talus", 1.0);
+            double strength = r.optDouble("strength", 0.5);
+            int apron = r.optInt("apron", 0);
+            boolean dryRun = r.optBoolean("dry_run", false);
+
+            int px0 = Integer.MIN_VALUE;
+            int pz0 = Integer.MIN_VALUE;
+            int px1 = Integer.MIN_VALUE;
+            int pz1 = Integer.MIN_VALUE;
+            JsonNode protect = arguments.get("protect_box");
+            if (protect != null && protect.isObject()) {
+                px0 = protect.get("x0").asInt();
+                pz0 = protect.get("z0").asInt();
+                px1 = protect.get("x1").asInt();
+                pz1 = protect.get("z1").asInt();
+            }
+
+            MinecraftAdapter.ErodeSpec spec =
+                    new MinecraftAdapter.ErodeSpec(
+                            originX, originZ, width, length, floorY,
+                            iterations, talus, strength,
+                            surface, subsurface, subDepth,
+                            px0, pz0, px1, pz1, apron, dryRun);
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        MinecraftAdapter.ErodeResult res =
+                                context.adapter().terrainErodeRegion(dim, spec);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("columns", res.columns());
+                        payload.put("blocks_changed", res.blocksChanged());
+                        payload.put("max_delta", res.maxDelta());
+                        payload.put("mean_abs_delta", res.meanAbsDelta());
+                        payload.put("moved", res.moved());
+                        payload.put("iterations", res.iterations());
+                        payload.put("dry_run", dryRun);
+                        // Dry run returns the flat row-major (xi*length+zi) eroded height
+                        // grid so the offline client can render-verify before applying.
+                        if (res.heights() != null) {
+                            ArrayNode hs = payload.putArray("heights");
+                            for (int hv : res.heights()) {
+                                hs.add(hv);
+                            }
+                        }
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    @McpTool(
+            name = "block_erode_hydraulic_start",
+            description =
+                    "Start an async hydraulic (droplet) erosion job over a region: surveys the live"
+                            + " surface, simulates rain droplets carving channels/valleys on a worker"
+                            + " thread, then (unless dry_run) writes the result back chunked across"
+                            + " server ticks. Returns a job_id; poll block_erode_hydraulic_status and"
+                            + " read block_erode_hydraulic_result. protect_box + apron shield built"
+                            + " structures. Default region cap 256x256, hard cap 512x512.")
+    public static final class HydraulicErodeStart extends BaseTool {
+        private static final long DEFAULT_CAP = 65_536L;
+        private static final long HARD_CAP = 262_144L;
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required(
+                                "origin",
+                                Schemas.object()
+                                        .description("World (x, z) of column index (0,0)")
+                                        .required("x", Schemas.integer("Origin X"))
+                                        .required("z", Schemas.integer("Origin Z"))
+                                        .build())
+                        .required("width", Schemas.integerBetween("Columns along X", 1, 512))
+                        .required("length", Schemas.integerBetween("Columns along Z", 1, 512))
+                        .required("floor_y", Schemas.integer("Lowest Y erosion may carve to"))
+                        .optional("surface", Schemas.string("Surface cap block (default minecraft:grass_block)"))
+                        .optional("subsurface", Schemas.string("Subsurface block (default minecraft:dirt)"))
+                        .optional(
+                                "subsurface_depth",
+                                Schemas.integerBetween("Subsurface thickness (default 3)", 0, 64))
+                        .optional(
+                                "droplets",
+                                Schemas.integerBetween("Number of droplets (default 70000)", 1, 5_000_000))
+                        .optional(
+                                "max_lifetime",
+                                Schemas.integerBetween("Max steps per droplet (default 30)", 1, 512))
+                        .optional("inertia", Schemas.number("Direction inertia 0..1 (default 0.05)"))
+                        .optional("capacity", Schemas.number("Sediment capacity factor (default 4.0)"))
+                        .optional("deposition", Schemas.number("Deposition rate 0..1 (default 0.3)"))
+                        .optional("erosion", Schemas.number("Erosion rate 0..1 (default 0.3)"))
+                        .optional("evaporation", Schemas.number("Evaporation rate 0..1 (default 0.01)"))
+                        .optional("gravity", Schemas.number("Gravity (default 4.0)"))
+                        .optional("initial_speed", Schemas.number("Droplet initial speed (default 1.0)"))
+                        .optional("initial_water", Schemas.number("Droplet initial water (default 1.0)"))
+                        .optional("seed", Schemas.integer("RNG seed (default 0)"))
+                        .optional(
+                                "protect_box",
+                                Schemas.object()
+                                        .description("Region left uneroded (e.g. a built structure)")
+                                        .required("x0", Schemas.integer("Min X"))
+                                        .required("z0", Schemas.integer("Min Z"))
+                                        .required("x1", Schemas.integer("Max X"))
+                                        .required("z1", Schemas.integer("Max Z"))
+                                        .build())
+                        .optional(
+                                "apron",
+                                Schemas.integerBetween("Taper width around protect_box (default 0)", 0, 256))
+                        .optional("dry_run", Schemas.bool("Compute only; do not write blocks (default false)"))
+                        .build();
+
+        public HydraulicErodeStart() {
+            super("block_erode_hydraulic_start");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            var origin = r.requireObject("origin");
+            int originX = origin.get("x").asInt();
+            int originZ = origin.get("z").asInt();
+            int width = r.requireInt("width");
+            int length = r.requireInt("length");
+            long columns = (long) width * length;
+            if (columns > HARD_CAP) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_erode_hydraulic_start: " + columns + " columns exceed the hard cap "
+                                + HARD_CAP + " (512x512); tile the region");
+            }
+            int floorY = r.requireInt("floor_y");
+            String surface = r.optString("surface", "minecraft:grass_block");
+            String subsurface = r.optString("subsurface", "minecraft:dirt");
+            int subDepth = r.optInt("subsurface_depth", 3);
+            int droplets = r.optInt("droplets", 70_000);
+            int maxLifetime = r.optInt("max_lifetime", 30);
+            double inertia = r.optDouble("inertia", 0.05);
+            double capacity = r.optDouble("capacity", 4.0);
+            double deposition = r.optDouble("deposition", 0.3);
+            double erosion = r.optDouble("erosion", 0.3);
+            double evaporation = r.optDouble("evaporation", 0.01);
+            double gravity = r.optDouble("gravity", 4.0);
+            double initialSpeed = r.optDouble("initial_speed", 1.0);
+            double initialWater = r.optDouble("initial_water", 1.0);
+            long seed = r.optLong("seed", 0L);
+            int apron = r.optInt("apron", 0);
+            boolean dryRun = r.optBoolean("dry_run", false);
+
+            int px0 = Integer.MIN_VALUE;
+            int pz0 = Integer.MIN_VALUE;
+            int px1 = Integer.MIN_VALUE;
+            int pz1 = Integer.MIN_VALUE;
+            JsonNode protect = arguments.get("protect_box");
+            if (protect != null && protect.isObject()) {
+                px0 = protect.get("x0").asInt();
+                pz0 = protect.get("z0").asInt();
+                px1 = protect.get("x1").asInt();
+                pz1 = protect.get("z1").asInt();
+            }
+            final int fpx0 = px0;
+            final int fpz0 = pz0;
+            final int fpx1 = px1;
+            final int fpz1 = pz1;
+
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        int[] heights =
+                                context.adapter()
+                                        .terrainSurveyHeights(dim, originX, originZ, width, length);
+                        ErosionJob.Params params =
+                                new ErosionJob.Params(
+                                        dim, originX, originZ, width, length, floorY,
+                                        surface, subsurface, subDepth,
+                                        droplets, maxLifetime, inertia, capacity, deposition,
+                                        erosion, evaporation, gravity, initialSpeed, initialWater,
+                                        fpx0, fpz0, fpx1, fpz1, apron, seed, dryRun);
+                        String jobId = context.jobs().nextJobId();
+                        ErosionJob job = new ErosionJob(jobId, params, heights);
+                        context.jobs().submit(job);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("job_id", jobId);
+                        payload.put("columns", (int) columns);
+                        payload.put("state", job.state().name());
+                        payload.put("dry_run", dryRun);
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    @McpTool(
+            name = "block_erode_hydraulic_status",
+            description =
+                    "Poll a hydraulic erosion job by job_id: returns state (ERODING/WRITING/DONE/FAILED),"
+                            + " progress 0..1, columns written/total, blocks_changed so far, and any error."
+                            + " Reads job state directly; does not touch the world.",
+            readOnly = true)
+    public static final class HydraulicErodeStatus extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("job_id", Schemas.string("Job id from block_erode_hydraulic_start"))
+                        .build();
+
+        public HydraulicErodeStatus() {
+            super("block_erode_hydraulic_status");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String jobId = r.requireString("job_id");
+            ErosionJob job = context.jobs().get(jobId);
+            if (job == null) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_erode_hydraulic_status: unknown or evicted job_id '" + jobId + "'");
+            }
+            ObjectNode payload = context.mapper().createObjectNode();
+            payload.put("job_id", jobId);
+            payload.put("state", job.state().name());
+            payload.put("progress", job.progress());
+            payload.put("written", job.written());
+            payload.put("total", job.total());
+            payload.put("blocks_changed", job.blocksChanged());
+            if (job.error() != null) {
+                payload.put("error", job.error());
+            }
+            return ToolResult.ofToon(payload);
+        }
+    }
+
+    @McpTool(
+            name = "block_erode_hydraulic_result",
+            description =
+                    "Read the final result of a hydraulic erosion job by job_id: state, blocks_changed,"
+                            + " max_delta, mean_abs_delta, moved, columns, dry_run. On a dry_run job it"
+                            + " also returns heights: the flat row-major (xi*length+zi) eroded new-height"
+                            + " grid for offline render-verify before applying. Call once state is DONE.",
+            readOnly = true)
+    public static final class HydraulicErodeResult extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("job_id", Schemas.string("Job id from block_erode_hydraulic_start"))
+                        .build();
+
+        public HydraulicErodeResult() {
+            super("block_erode_hydraulic_result");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String jobId = r.requireString("job_id");
+            ErosionJob job = context.jobs().get(jobId);
+            if (job == null) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "block_erode_hydraulic_result: unknown or evicted job_id '" + jobId + "'");
+            }
+            ObjectNode payload = context.mapper().createObjectNode();
+            payload.put("job_id", jobId);
+            payload.put("state", job.state().name());
+            payload.put("blocks_changed", job.blocksChanged());
+            payload.put("max_delta", job.maxDelta());
+            payload.put("mean_abs_delta", job.meanAbsDelta());
+            payload.put("moved", job.movedTotal());
+            payload.put("columns", job.total());
+            payload.put("dry_run", job.params().dryRun());
+            // Dry run returns the flat row-major (xi*length+zi) eroded height grid so the
+            // offline client can render-verify the proposal before applying. On an apply
+            // the grid is omitted (it would bloat the response and is already in-world).
+            int[] heights = job.newHeights();
+            if (job.params().dryRun() && heights != null) {
+                ArrayNode hs = payload.putArray("heights");
+                for (int hv : heights) {
+                    hs.add(hv);
+                }
+            }
+            if (job.error() != null) {
+                payload.put("error", job.error());
+            }
+            return ToolResult.ofToon(payload);
         }
     }
 

@@ -1,8 +1,10 @@
 package com.chapmanjw.minecraft.fabric.mcp.compat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -22,7 +24,7 @@ class ToolDescriptorTest {
                         List.of(rm),
                         ">=0.16.0",
                         ToolCategory.WORLD,
-                        false,
+                        ToolAccess.WRITE,
                         ToolDescriptorTest.class);
         assertEquals("tool-x", td.name());
         assertEquals("does x", td.description());
@@ -31,10 +33,26 @@ class ToolDescriptorTest {
         assertEquals(">=0.16.0", td.requiredFabricLoaderVersion());
         assertSame(ToolDescriptorTest.class, td.toolClass());
         assertEquals(ToolCategory.WORLD, td.category());
-        assertEquals(false, td.readOnly());
+        assertEquals(ToolAccess.WRITE, td.access());
+        assertFalse(td.readOnly(), "WRITE access is not read-only");
         assertEquals(1, td.requiredModules().size());
         assertEquals("fabric-api", td.requiredModules().get(0).moduleId());
         assertEquals(">=0.140.0", td.requiredModules().get(0).versionPredicate());
+    }
+
+    @Test
+    void readOnlyConvenienceReflectsAccess() {
+        var read =
+                new ToolDescriptor(
+                        "r", "d", "", "", List.of(), "",
+                        ToolCategory.WORLD, ToolAccess.READ, ToolDescriptorTest.class);
+        assertTrue(read.readOnly());
+        var admin =
+                new ToolDescriptor(
+                        "a", "d", "", "", List.of(), "",
+                        ToolCategory.SERVER, ToolAccess.ADMIN, ToolDescriptorTest.class);
+        assertFalse(admin.readOnly());
+        assertEquals(ToolAccess.ADMIN, admin.access());
     }
 
     @Test
@@ -44,7 +62,7 @@ class ToolDescriptorTest {
         ToolDescriptor td =
                 new ToolDescriptor(
                         "n", "d", "", "", mutable, "",
-                        ToolCategory.WORLD, false, ToolDescriptorTest.class);
+                        ToolCategory.WORLD, ToolAccess.WRITE, ToolDescriptorTest.class);
         // Adding to the source list must not be visible in the descriptor's view.
         mutable.add(new ToolDescriptor.RequiredModule("b", "*"));
         assertEquals(1, td.requiredModules().size());

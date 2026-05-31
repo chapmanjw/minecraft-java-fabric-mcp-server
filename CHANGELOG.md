@@ -6,6 +6,89 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-30
+
+Six new terrain tools, plus a re-categorised tool surface. The tool universe
+grows to 183, but the **default** surface is now a lean ~102 tools: tools are
+grouped into ten domains with a read/write/admin access axis, and only the
+default-on domains (capped at `write`) register unless you opt in. Existing tool
+names, schemas, and behaviour are unchanged; the one breaking change is the
+**category-configuration vocabulary** (see Changed).
+
+### Added
+
+- **`level_place_features_batch`** (C1) — grows many vanilla worldgen features
+  in one call, the batch form of `level_place_feature`. The throughput path for
+  a vegetation/detail scatter: `features[]` of `{feature, x, y, z}` placed inside
+  a single main-thread submission, so hundreds–thousands of trees cost one MCP
+  round-trip and one rate-limit slot instead of one per feature. Capped at 4096
+  entries per call (tile larger scatters); reports per-entry `placed`/`failed`
+  with a `stop_on_error` toggle.
+- **`block_fill_columns_strata`** (C2) — a strata-banded `block_fill_columns`:
+  same per-column heightmap fill, but the deep mass below the subsurface is
+  banded into geological strata (`strata[]` of `{block, thickness}` top→bottom,
+  `base_stone` below the deepest band) instead of one stone block — the canyon /
+  mesa / badlands signature. Optional `jitter_amplitude` / `jitter_freq` wobble
+  the band boundaries so they are not dead-flat. Same 65,536-column cap as
+  `block_fill_columns`.
+- **Async job engine re-introduced** (C0) — `AsyncJobRegistry` (and the
+  `jobs()` accessor on `ToolContext`) plus `ErosionJob`, removed in 0.2.0 as
+  unused, are back with a real call site driving the design: the hydraulic
+  erosion trio below. Survey + droplet simulation run on a worker thread; the
+  writeback is metered across server ticks so a large erosion never blocks the
+  main thread past the command-timeout budget.
+- **In-world erosion** (C4) — naturalise terrain that already exists in the
+  world, not just freshly placed heightfields:
+  - **`block_erode_region`** — synchronous thermal erosion: reads the live
+    surface, runs talus collapse, then re-materialises surface + subsurface to
+    the new profile. `protect_box` (with a smoothstep `apron`) shields built
+    structures so terrain naturalises into them; `dry_run` reports max/mean
+    height delta with no writes. Same 65,536-column cap.
+  - **`block_erode_hydraulic_start` / `block_erode_hydraulic_status` /
+    `block_erode_hydraulic_result`** — async hydraulic (rain-droplet) erosion on
+    the job engine above. `_start` surveys the surface and queues the job,
+    returning a `job_id`; `_status` reports state
+    (`ERODING`/`WRITING`/`DONE`/`FAILED`) and progress; `_result` returns the
+    final `blocks_changed` / `max_delta` / `mean_abs_delta` / `moved` once
+    `DONE`. `protect_box` + `apron` shield built structures; `dry_run` computes
+    without writing. Region default 256×256, hard cap 512×512 (tile larger
+    regions).
+
+### Changed
+
+- **Tool categories re-modelled into ten domains + an access axis (BREAKING
+  config).** Tools are now grouped as `blocks`, `structures`, `world`,
+  `entities`, `players`, `items`, `gameplay`, `scripting`, `registries`,
+  `server` (replacing the previous category scheme), each tagged
+  `read` / `write` / `admin` (via `@McpTool.admin` + the read-only heuristic).
+  A new `max_access` config (default `write`) caps the surface by access level.
+  Unconfigured, the server now registers a lean default of ~102 tools: the
+  default-on domains (`blocks`, `structures`, `world`, `entities`, `items`,
+  `scripting`, `server`) at ≤`write`; `players`, `gameplay`, and `registries`
+  are opt-in by domain, and the 15 admin tools are opt-in by access.
+  **Operators using `included_categories` / `excluded_categories` must update to
+  the new domain names**; set all domains + `max_access: admin` to register the
+  full 183.
+
+### Fixed
+
+- **`bossbar_set_players` with an empty list** no longer emits an invalid
+  `/bossbar set <id> players` (no selector); it clears players via the
+  `CustomBossEvent` API.
+- **`content_registry` flammable burn/spread chances** were swapped between the
+  setter and getter — un-swapped so both agree.
+- **`datapack_enable`** selects the pack via `PackRepository` and reloads
+  resources, returning an honest feature-flag error for experimental /
+  reload-required packs instead of a blanket failure.
+- **`structure_list`** merges in-memory and on-disk templates across all
+  namespaces (was enumerating only `minecraft:`), so `mcb:` and other custom
+  structures appear.
+- **Erosion correctness + safety:** the live surface is read from three
+  heightmaps (`WORLD_SURFACE` / `OCEAN_FLOOR` / `MOTION_BLOCKING_NO_LEAVES`); a
+  region-loaded pre-flight rejects unloaded regions (no silent `-64` void
+  reads); a chunk-load re-check during chunked writeback re-queues rather than
+  dropping columns; and `dry_run` returns the computed eroded height grid.
+
 ## [0.3.0] - 2026-05-22
 
 ### Added
@@ -328,5 +411,8 @@ The 0.1.0 public contract — tool names, tool input/output schemas, configurati
 env-var names, and the MCP wire protocol revision — is governed by SemVer from this release
 forward.
 
-[Unreleased]: https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases/tag/v0.1.0

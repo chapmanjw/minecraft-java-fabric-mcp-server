@@ -32,7 +32,44 @@ class ConfigTest {
         assertFalse(c.metricsEnabled());
         assertEquals(List.of(), c.includedCategories());
         assertEquals(List.of(), c.excludedCategories());
+        assertEquals("write", c.maxAccess());
         assertFalse(c.excludeWriteTools());
+    }
+
+    @Test
+    void effectiveMaxAccessHonorsLegacyExcludeWriteTools() {
+        // Default → write.
+        assertEquals(
+                com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.WRITE,
+                Config.defaults().effectiveMaxAccess());
+        // Legacy exclude_write_tools=true lowers the cap to read.
+        Config legacy =
+                new Config(
+                        "127.0.0.1", 8765, false, null, false, List.of(),
+                        15000L, 60, 1024, 16, 1, "info", null, null, false,
+                        List.of(), List.of(), "write", true);
+        assertEquals(
+                com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.READ,
+                legacy.effectiveMaxAccess());
+        // Explicit admin survives.
+        Config admin =
+                new Config(
+                        "127.0.0.1", 8765, false, null, false, List.of(),
+                        15000L, 60, 1024, 16, 1, "info", null, null, false,
+                        List.of(), List.of(), "admin", false);
+        assertEquals(
+                com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.ADMIN,
+                admin.effectiveMaxAccess());
+    }
+
+    @Test
+    void nullOrBlankMaxAccessDefaultsToWrite() {
+        Config c =
+                new Config(
+                        "127.0.0.1", 8765, false, null, false, List.of(),
+                        15000L, 60, 1024, 16, 1, "info", null, null, false,
+                        List.of(), List.of(), null, false);
+        assertEquals("write", c.maxAccess());
     }
 
     @Test
@@ -107,6 +144,7 @@ class ConfigTest {
         assertEquals(original.metricsEnabled(), updated.metricsEnabled());
         assertEquals(original.includedCategories(), updated.includedCategories());
         assertEquals(original.excludedCategories(), updated.excludedCategories());
+        assertEquals(original.maxAccess(), updated.maxAccess());
         assertEquals(original.excludeWriteTools(), updated.excludeWriteTools());
     }
 
@@ -138,6 +176,7 @@ class ConfigTest {
                                 false,
                                 List.of(),
                                 List.of(),
+                                "write",
                                 false));
     }
 
@@ -162,6 +201,7 @@ class ConfigTest {
                         false,
                         List.of(),
                         List.of(),
+                        "write",
                         false);
         assertEquals(List.of(), c.allowedOrigins());
     }
@@ -187,6 +227,7 @@ class ConfigTest {
                         false,
                         null,
                         null,
+                        "write",
                         false);
         assertEquals(List.of(), c.includedCategories());
         assertEquals(List.of(), c.excludedCategories());
@@ -217,6 +258,7 @@ class ConfigTest {
                 false,
                 List.of(),
                 List.of(),
+                "write",
                 false);
     }
 
@@ -239,6 +281,7 @@ class ConfigTest {
                 base.metricsEnabled(),
                 base.includedCategories(),
                 base.excludedCategories(),
+                base.maxAccess(),
                 base.excludeWriteTools());
     }
 }

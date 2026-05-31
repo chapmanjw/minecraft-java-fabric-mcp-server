@@ -333,8 +333,15 @@ final class GameplayOps {
         // online player name -- vanilla 1.21.x has no uuid= selector option and
         // EntityArgument.players() rejects bare UUIDs.
         if (playerUuids == null || playerUuids.isEmpty()) {
-            return AdapterContext.commandOk(
-                    ctx.commandExecute("bossbar set " + id + " players"));
+            // Clearing the player list via the command means running `/bossbar set <id>
+            // players` with no selector, which vanilla rejects as a syntax error. Clear
+            // directly through the CustomBossEvent API instead (mirrors the other setters).
+            CustomBossEvent ev = requireBossbar(id);
+            if (ev == null) {
+                return false;
+            }
+            ev.removeAllPlayers();
+            return true;
         }
         StringBuilder sb = new StringBuilder("bossbar set ").append(id).append(" players");
         for (UUID u : playerUuids) {

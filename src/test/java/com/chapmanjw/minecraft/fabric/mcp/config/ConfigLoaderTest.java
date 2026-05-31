@@ -26,6 +26,7 @@ class ConfigLoaderTest {
         assertEquals(List.of(), c.allowedOrigins());
         assertEquals(List.of(), c.includedCategories());
         assertEquals(List.of(), c.excludedCategories());
+        assertEquals("write", c.maxAccess());
         assertFalse(c.excludeWriteTools());
     }
 
@@ -34,13 +35,32 @@ class ConfigLoaderTest {
         Path f = tmp.resolve("config.json");
         Files.writeString(
                 f,
-                "{ \"included_categories\": [\"world\", \"actors\"],"
+                "{ \"included_categories\": [\"blocks\", \"entities\"],"
                         + " \"excluded_categories\": [\"server\"],"
+                        + " \"max_access\": \"admin\","
                         + " \"exclude_write_tools\": true }");
         Config c = new ConfigLoader().load(f);
-        assertEquals(List.of("world", "actors"), c.includedCategories());
+        assertEquals(List.of("blocks", "entities"), c.includedCategories());
         assertEquals(List.of("server"), c.excludedCategories());
+        assertEquals("admin", c.maxAccess());
         assertTrue(c.excludeWriteTools());
+    }
+
+    @Test
+    void maxAccessDefaultsToWriteWhenAbsent(@TempDir Path tmp) throws IOException {
+        Path f = tmp.resolve("config.json");
+        Files.writeString(f, "{ \"port\": 8765 }");
+        Config c = new ConfigLoader().load(f);
+        assertEquals("write", c.maxAccess());
+    }
+
+    @Test
+    void maxAccessRejectsUnknownValue(@TempDir Path tmp) throws IOException {
+        Path f = tmp.resolve("config.json");
+        Files.writeString(f, "{ \"max_access\": \"superuser\" }");
+        ConfigException ex =
+                assertThrows(ConfigException.class, () -> new ConfigLoader().load(f));
+        assertTrue(ex.getMessage().contains("max_access"));
     }
 
     @Test
@@ -242,16 +262,18 @@ class ConfigLoaderTest {
         Files.writeString(
                 target,
                 "{\"auth_required\":true,"
-                        + "\"included_categories\":[\"world\",\"actors\"],"
+                        + "\"included_categories\":[\"blocks\",\"entities\"],"
                         + "\"excluded_categories\":[\"server\"],"
+                        + "\"max_access\":\"admin\","
                         + "\"exclude_write_tools\":true}");
         ConfigLoader loader = new ConfigLoader();
         Config first = loader.load(target);
         assertNotNull(first.bearerToken(), "auth_required should trigger token generation");
         // Re-read the persisted file and make sure the category fields survived.
         Config rehydrated = loader.load(target);
-        assertEquals(List.of("world", "actors"), rehydrated.includedCategories());
+        assertEquals(List.of("blocks", "entities"), rehydrated.includedCategories());
         assertEquals(List.of("server"), rehydrated.excludedCategories());
+        assertEquals("admin", rehydrated.maxAccess());
         assertTrue(rehydrated.excludeWriteTools());
         // Token must round-trip too.
         assertEquals(first.bearerToken(), rehydrated.bearerToken());

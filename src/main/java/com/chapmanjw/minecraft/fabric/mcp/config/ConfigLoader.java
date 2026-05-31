@@ -99,6 +99,7 @@ public final class ConfigLoader {
         boolean metrics = boolOrDefault(root, "metrics_enabled", base.metricsEnabled());
         List<String> includedCats = stringArrayOrDefault(root, "included_categories", base.includedCategories());
         List<String> excludedCats = stringArrayOrDefault(root, "excluded_categories", base.excludedCategories());
+        String maxAccess = textOrDefault(root, "max_access", base.maxAccess());
         boolean excludeWrites = boolOrDefault(root, "exclude_write_tools", base.excludeWriteTools());
 
         return new Config(
@@ -119,6 +120,7 @@ public final class ConfigLoader {
                 metrics,
                 includedCats,
                 excludedCats,
+                maxAccess,
                 excludeWrites);
     }
 
@@ -142,6 +144,7 @@ public final class ConfigLoader {
         boolean metrics = envBool("METRICS_ENABLED", base.metricsEnabled());
         List<String> includedCats = envCsv("INCLUDED_CATEGORIES", base.includedCategories());
         List<String> excludedCats = envCsv("EXCLUDED_CATEGORIES", base.excludedCategories());
+        String maxAccess = env("MAX_ACCESS", base.maxAccess());
         boolean excludeWrites = envBool("EXCLUDE_WRITE_TOOLS", base.excludeWriteTools());
 
         return new Config(
@@ -162,6 +165,7 @@ public final class ConfigLoader {
                 metrics,
                 includedCats,
                 excludedCats,
+                maxAccess,
                 excludeWrites);
     }
 
@@ -318,6 +322,10 @@ public final class ConfigLoader {
             throw new ConfigException(
                     "tls_cert_path and tls_key_path must both be set or both null");
         }
+        if (com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.fromWireName(c.maxAccess()).isEmpty()) {
+            throw new ConfigException(
+                    "max_access must be one of read|write|admin (got '" + c.maxAccess() + "')");
+        }
         if (!c.isLoopback()) {
             // Non-loopback binding is high-risk; require both auth and an explicit opt-in.
             if (!c.allowRemote()) {
@@ -393,6 +401,7 @@ public final class ConfigLoader {
             root.put("metrics_enabled", c.metricsEnabled());
             root.set("included_categories", mapper.valueToTree(c.includedCategories()));
             root.set("excluded_categories", mapper.valueToTree(c.excludedCategories()));
+            root.put("max_access", c.maxAccess());
             root.put("exclude_write_tools", c.excludeWriteTools());
 
             mapper.writeValue(configFile.toFile(), root);

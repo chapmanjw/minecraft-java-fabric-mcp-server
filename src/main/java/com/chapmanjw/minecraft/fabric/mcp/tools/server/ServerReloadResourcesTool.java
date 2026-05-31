@@ -8,7 +8,7 @@ import com.chapmanjw.minecraft.fabric.mcp.protocol.ToolResult;
 import com.chapmanjw.minecraft.fabric.mcp.tools.BaseTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 
-@McpTool(name = "server_reload_resources", description = "Reloads datapacks and resources. Equivalent to /reload.")
+@McpTool(name = "server_reload_resources", description = "Reloads datapacks and resources. Equivalent to /reload.", admin = true)
 public final class ServerReloadResourcesTool extends BaseTool {
 
     private static final JsonNode SCHEMA = Schemas.object().description("No arguments.").build();

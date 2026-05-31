@@ -34,9 +34,11 @@ class McpHttpRouteTest {
         registry.register(
                 new ToolDescriptor(
                         "echo", "", "", "", List.of(), "",
-                        ToolCategory.GAMEPLAY, false, EchoTool.class),
+                        ToolCategory.GAMEPLAY,
+                        com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.WRITE,
+                        EchoTool.class),
                 new EchoTool());
-        ToolContext ctx = new ToolContext(null, null, null, null, mapper, null);
+        ToolContext ctx = new ToolContext(null, null, null, null, mapper, null, null);
         McpDispatcher dispatcher =
                 new McpDispatcher(
                         registry,

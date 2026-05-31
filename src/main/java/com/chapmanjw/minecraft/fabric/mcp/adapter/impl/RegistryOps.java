@@ -367,8 +367,11 @@ final class RegistryOps {
         if (block == null) {
             return false;
         }
+        // Fabric's add(Block, igniteOdds, burnOdds) takes ignite/spread odds first,
+        // burn odds second. Map spread_chance -> igniteOdds, burn_chance -> burnOdds
+        // so a value written here reads back unchanged via getIgniteOdds()/getBurnOdds().
         net.fabricmc.fabric.api.registry.FlammableBlockRegistry.getDefaultInstance()
-                .add(block, burnChance, spreadChance);
+                .add(block, spreadChance, burnChance);
         return true;
     }
 

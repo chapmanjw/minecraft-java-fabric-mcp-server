@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.MinecraftAdapter;
 import com.chapmanjw.minecraft.fabric.mcp.config.Config;
 import com.chapmanjw.minecraft.fabric.mcp.runtime.MinecraftMainThreadExecutor;
+import com.chapmanjw.minecraft.fabric.mcp.runtime.AsyncJobRegistry;
 
 /**
  * Per-server context handed to every {@link Tool#execute} call.
@@ -19,7 +20,8 @@ public record ToolContext(
         EventBus eventBus,
         Config config,
         ObjectMapper mapper,
-        ToolRegistry registry) {
+        ToolRegistry registry,
+        AsyncJobRegistry jobs) {
 
     /** Convenience: re-export the main-thread default timeout for tool handlers. */
     public long defaultTimeoutMs() {
