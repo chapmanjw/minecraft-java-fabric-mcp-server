@@ -31,7 +31,7 @@ Write-Host "watching for process exit (jar unlock)..."
 $deadline = (Get-Date).AddSeconds($TimeoutSec)
 while ((Get-Date) -lt $deadline) {
     $swapped = $true
-    # Remove ANY current mcp jar (any version) once it unlocks — supports a
+    # Remove ANY current mcp jar (any version) once it unlocks -- supports a
     # same-version (0.4.0 -> 0.4.0) redeploy as well as a version bump. The
     # fabric-api jar is left alone (different prefix).
     foreach ($j in (Get-ChildItem $modsDir -Filter "minecraft-fabric-mcp-*.jar")) {
