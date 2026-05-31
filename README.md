@@ -4,6 +4,16 @@
 
 # Minecraft Java MCP Server (Fabric)
 
+<p align="center">
+  <a href="https://modrinth.com/mod/fabric-api-mcp-server"><img src="https://img.shields.io/badge/Modrinth-Download-00AF5C?logo=modrinth&logoColor=white" alt="Download on Modrinth"></a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/fabric-api-mcp-server"><img src="https://img.shields.io/badge/CurseForge-Download-F16436?logo=curseforge&logoColor=white" alt="Download on CurseForge"></a>
+</p>
+
+> **Install the mod from [Modrinth](https://modrinth.com/mod/fabric-api-mcp-server) or
+> [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api-mcp-server).** Pick the jar
+> that matches your Minecraft version, drop it in `mods/` alongside Fabric API, and launch. Full
+> walkthrough in [Quick start](#quick-start-single-player-default-config) below.
+
 A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that runs **inside Minecraft
 Java Edition as a Fabric mod**. It exposes the server-side Minecraft API and the Fabric API as MCP
 tools so an MCP client — Claude Desktop, Cursor, or any agent that speaks MCP — can read and
@@ -118,9 +128,11 @@ Minecraft Launcher and creates a `mods/` folder under your game directory.
 
 ### 4. Download the mod and Fabric API
 
-- This mod: grab the matching jar from the
-  [Releases page](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases). Pick the
-  file whose suffix matches your Minecraft version, e.g. `minecraft-fabric-mcp-0.2.0+1.21.11.jar`.
+- This mod — get it from your preferred mod host and pick the jar whose suffix matches your
+  Minecraft version (e.g. `minecraft-fabric-mcp-0.2.0+1.21.11.jar`):
+  - **[Modrinth](https://modrinth.com/mod/fabric-api-mcp-server)** (recommended)
+  - **[CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api-mcp-server)**
+  - or the [GitHub Releases page](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases).
 - [Fabric API](https://modrinth.com/mod/fabric-api): pick the version that matches the same MC
   version.
 
