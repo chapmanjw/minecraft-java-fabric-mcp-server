@@ -182,11 +182,15 @@ jobs:
       # set environment, then read it back to confirm it stuck.
       #
       # "client_or_server" = "Works the same on either side" (legacy: client
-      # Optional / server Optional). NOTE: per-file CurseForge Client/Server
-      # tagging (curseforge-game-versions: [mc, Client, Server] + filter) was
-      # removed in v0.4.0 — on mc-publish v3.3 it resolved to zero CurseForge
-      # game versions and aborted the whole publish; CurseForge environment is
-      # left at the project default.
+      # Optional / server Optional). NOTE: the CurseForge Client/Server
+      # environment is set MANUALLY in the CurseForge file console per release.
+      # Do NOT re-add curseforge-game-versions: [mc, Client, Server]: mc-publish
+      # v3.3 resolves curseforge-game-versions strictly as Minecraft versions
+      # (through its game-version provider), so non-MC tags like Client/Server
+      # are dropped -- which returned an EMPTY game-version set and aborted the
+      # whole publish (the v0.4.0 regression). CurseForge has no post-upload API
+      # to edit a file's game versions, so automating it would require a
+      # dedicated upload step passing numeric ids [mcId, fabricId, 9638, 9639].
       #
       # Skips cleanly when MODRINTH_TOKEN is unset (matches mc-publish's own
       # behaviour), so it is safe to keep before the token is provisioned.
