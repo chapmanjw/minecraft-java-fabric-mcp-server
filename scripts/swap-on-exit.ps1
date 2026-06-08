@@ -9,7 +9,7 @@
 param(
     [string]$ServerDir = "C:\fabric-mcp",
     [string]$RepoDir   = (Split-Path $PSScriptRoot -Parent),
-    [string]$NewJar    = "minecraft-fabric-mcp-0.4.0+26.1.2.jar",
+    [string]$NewJar    = "minecraft-fabric-mcp-1.0.0+26.1.2.jar",
     [int]$TimeoutSec   = 120
 )
 $ErrorActionPreference = "Continue"

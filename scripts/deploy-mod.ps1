@@ -7,7 +7,7 @@
 # so a bad build can never strand the server. Pure service/file ops; needs no MCP.
 #
 # Usage (from the mod repo root, after gradlew build):
-#   powershell -ExecutionPolicy Bypass -File scripts/deploy-mod.ps1 -JarGlob "minecraft-fabric-mcp-0.4.0+26.1.2.jar"
+#   powershell -ExecutionPolicy Bypass -File scripts/deploy-mod.ps1 -JarGlob "minecraft-fabric-mcp-1.0.0+26.1.2.jar"
 #
 param(
     [string]$Service   = "MinecraftFabricMCP",

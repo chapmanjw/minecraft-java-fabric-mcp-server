@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-06-07
+
+The 1.0 milestone. The mod now sees as well as acts: alongside the headless world
+server it ships a second MCP endpoint, served from inside a real rendered client,
+so an agent can capture the player's actual first-person frame and inspect the
+world the way a player does. The `minecraft-java` world tool surface is unchanged.
 
 ### Added
 
