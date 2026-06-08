@@ -104,6 +104,23 @@ The complete cross-version matrix lives in [docs/tools.md](tools.md). High-level
 A tool whose registration is conditional on a Fabric API module simply doesn't appear in `tools/list`
 when that module is missing — there's no error path the client has to handle.
 
+## Client inspection tools (`client` category)
+
+The `client` category (`view_capture`, `sense_*`, `client_status`) is served only by the client
+entrypoint (`McpClientMod`) running inside a real client — see
+[architecture.md](architecture.md#client-entrypoint-mcpclientmod-and-the-clientaccess-seam) and
+[configuration.md](configuration.md#two-mcp-servers-world--inspection). It carries no per-version
+`@McpTool` constraints (the tools are present on every client target), and all client/render
+symbols it uses were **verified by `javap` against the client jars of all three targets — 1.21.11,
+26.1.1, and 26.1.2 — and are identical across them**, so no Stonecutter split is needed. The
+load-bearing capture facts (true on all three): the only capture entry point is the callback form
+`Screenshot.takeScreenshot(RenderTarget, [int downScale,] Consumer<NativeImage>)` (there is no
+`NativeImage`-returning overload), and `NativeImage` has no in-memory byte export — only
+`writeToFile(File/Path)` — so `view_capture` round-trips a temp PNG. All client coupling is
+localized in `adapter.client.ClientAccessImpl` behind the stable `ClientAccess` interface; if a
+*future* version diverges, gate the difference there with the same Stonecutter `//? if mc >= …`
+blocks the adapter uses.
+
 ## Building a different target locally
 
 ```sh

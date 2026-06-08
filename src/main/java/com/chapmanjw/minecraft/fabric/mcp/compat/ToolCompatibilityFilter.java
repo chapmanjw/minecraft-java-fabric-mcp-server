@@ -35,7 +35,8 @@ public final class ToolCompatibilityFilter {
     private static final Logger LOGGER = LoggerFactory.getLogger("minecraft_fabric_mcp/compat");
 
     private static final String VALID_CATEGORIES =
-            "blocks, structures, world, entities, players, items, gameplay, scripting, registries, server";
+            "blocks, structures, world, entities, players, items, gameplay, scripting, registries, server,"
+                    + " client";
 
     private final McEnvironment env;
 

@@ -10,8 +10,19 @@ import org.junit.jupiter.api.Test;
 class ToolCategoryTest {
 
     @Test
-    void tenCategoriesExist() {
-        assertEquals(10, ToolCategory.values().length);
+    void elevenCategoriesExist() {
+        // Ten world-server domains + the client-only inspection category.
+        assertEquals(11, ToolCategory.values().length);
+    }
+
+    @Test
+    void clientCategoryResolvesAndIsOptIn() {
+        assertEquals(ToolCategory.CLIENT, ToolCategory.forToolName("view_capture"));
+        assertEquals(ToolCategory.CLIENT, ToolCategory.forToolName("sense_crosshair"));
+        assertEquals(ToolCategory.CLIENT, ToolCategory.forToolName("client_status"));
+        assertEquals("client", ToolCategory.CLIENT.wireName());
+        assertTrue(ToolCategory.fromWireName("client").isPresent());
+        assertFalse(ToolCategory.CLIENT.enabledByDefault());
     }
 
     @Test

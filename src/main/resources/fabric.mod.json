@@ -18,6 +18,9 @@
   "entrypoints": {
     "main": [
       "com.chapmanjw.minecraft.fabric.mcp.McpServerMod"
+    ],
+    "client": [
+      "com.chapmanjw.minecraft.fabric.mcp.McpClientMod"
     ]
   },
   "mixins": [],

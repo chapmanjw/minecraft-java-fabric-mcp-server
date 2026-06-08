@@ -41,6 +41,18 @@ verified with `block_render_region`.*
 The mod ships separate jars for each supported Minecraft version. The build matrix in v0.2.0 is
 **1.21.11**, **26.1.1**, and **26.1.2**.
 
+### Two endpoints: world + inspection
+
+The same jar exposes two MCP servers. The **`main`** entrypoint serves the world tools on
+`minecraft-java` (default port 8765) wherever a server runs — dedicated or single-player. The
+**`client`** entrypoint runs inside a real, rendered client and serves an inspection-only surface
+on `minecraft-java-client` (default port 8766): `view_capture` returns the player's actual
+first-person frame as a PNG, and `sense_*` / `client_status` read client-side perception. It is the
+way an agent SEES the world as a player does — the real rendered pixels the headless server can't
+produce. Run server-only, client-only (single-player gives you both endpoints from one process), or
+a server+client combo. See
+[docs/configuration.md](docs/configuration.md#two-mcp-servers-world--inspection).
+
 ## ⚠️ Built on Minecraft and Fabric API internals
 
 This mod depends on Minecraft's server-side internals via the Fabric API. The API surface evolves

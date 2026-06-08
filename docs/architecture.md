@@ -113,6 +113,32 @@ Where the API surface diverges between 1.21.11 and 26.1.x (`Difficulty.getKey()`
 { /*…*/ //?}`. The `mc_gte_26` boolean constant is defined in `mod-build.gradle.kts` and made
 available to Stonecutter's evaluator at preprocessing time.
 
+### Client entrypoint (`McpClientMod`) and the `ClientAccess` seam
+
+The same jar ships a second entrypoint. `McpServerMod` (the `main` entrypoint) is the world server
+described above. `McpClientMod` (the `client` entrypoint) runs inside a real, rendered Minecraft
+client and serves the **`client`** tool category — read-only inspection: capture the rendered
+first-person frame (`view_capture`) and read client-side perception (`sense_*`, `client_status`).
+It reuses Transport / Protocol / Config / Compat unchanged; only two things differ:
+
+- **The seam.** Server tools go through `MinecraftAdapter`; client tools go through
+  `ClientAccess` — the same interface-returning-DTOs pattern, but for the client. `ClientAccess`
+  carries **no `net.minecraft.client.*` types in its signatures**, so `ToolContext` (which now
+  holds an optional `ClientAccess`) stays loadable on a dedicated server. The only class that
+  imports client/render types is `adapter.client.ClientAccessImpl`, instantiated solely from the
+  client entrypoint, so a headless server never classloads it. Likewise the client tool list lives
+  in `ClientToolRegistration` (not `ToolRegistration.ALL_TOOL_CLASSES`), keeping the two surfaces
+  separate by construction.
+- **The thread.** `MinecraftClient` is also a `ReentrantThreadExecutor`, so the same
+  `MinecraftMainThreadExecutor` is attached to `Minecraft.getInstance()::execute` instead of
+  `MinecraftServer::execute`. Framebuffer reads and world reads marshal onto the client thread the
+  same way server work marshals onto the server main thread.
+
+The client endpoint binds on `ClientLifecycleEvents.CLIENT_STARTED` and runs on its own port
+(default 8766) and config (`client.json`, env prefix `MCP_CLIENT_*`) so it can coexist with the
+world endpoint in a single-player process. See [version-compatibility.md](version-compatibility.md)
+for the post-26.1 mappings note on the render/capture symbols.
+
 ## Threading model
 
 Minecraft's server runs all world logic on **one main thread**. Touching a world from any other

@@ -27,6 +27,27 @@ Common causes:
 The error always appears in the Minecraft log before the world finishes loading. Search for
 `MCP server` to find it.
 
+## Inspection client (`minecraft-java-client`) issues
+
+These apply to the client-side inspection endpoint (default port 8766) served by the client
+entrypoint — see [configuration.md](configuration.md#two-mcp-servers-world--inspection).
+
+- **`view_capture` returns the pause / Game menu.** The client opens the pause menu when its
+  window loses focus (e.g. when you alt-tab away), and a capture grabs whatever was last rendered.
+  `view_capture` defaults to `close_screen: true`, which dismisses the menu and renders a clean
+  frame before capturing, so this is normally handled for you. To stop the menu opening on focus
+  loss in the first place, toggle **Pause on Lost Focus** off in-game with **F3 + P** (the
+  `key.debug.focusPause` debug binding), or set `pauseOnLostFocus:false` in the instance's
+  `options.txt`.
+- **`view_capture` says "No frame available" or times out.** The client must be in a world and the
+  window must **not** be minimized — a minimized window stops rendering, so the GPU readback never
+  completes. Keep the window visible (occluded behind another app is fine).
+- **The captured PNG is too large.** A large game window produces a large image; over the
+  inline-image path some MCP clients cap returned content near ~1 MB. Raise `downscale` (e.g. 3–4)
+  or use a smaller window.
+- **`minecraft-java-client` shows "failed to connect".** Nothing is serving 8766 yet — that
+  endpoint binds only while a real client is running. Launch the client and join a world.
+
 ## "Host header '…' not in allowed set"
 
 The MCP client is reaching the listener but its `Host` header doesn't match the bind address.

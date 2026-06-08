@@ -300,9 +300,20 @@ public final class ToolRegistration {
      * out by version/module constraints) at INFO so the boot log is informative.
      */
     public static ToolRegistry buildRegistry(ToolCompatibilityFilter filter) {
+        return buildRegistry(ALL_TOOL_CLASSES, filter);
+    }
+
+    /**
+     * Build a {@link ToolRegistry} from an explicit list of tool classes. Used by the server
+     * entrypoint with {@link #ALL_TOOL_CLASSES} and by the client entrypoint
+     * ({@code ClientToolRegistration}) with the client-only tool list, so both surfaces share the
+     * same compatibility/category filtering loop.
+     */
+    public static ToolRegistry buildRegistry(
+            List<Class<? extends Tool>> toolClasses, ToolCompatibilityFilter filter) {
         ToolRegistry registry = new ToolRegistry();
         List<String> skipped = new ArrayList<>();
-        for (Class<? extends Tool> klass : ALL_TOOL_CLASSES) {
+        for (Class<? extends Tool> klass : toolClasses) {
             Optional<ToolDescriptor> descOpt = filter.evaluate(klass);
             if (descOpt.isEmpty()) {
                 skipped.add(klass.getSimpleName());
@@ -316,7 +327,7 @@ public final class ToolRegistration {
             }
         }
         LOGGER.info(
-                "Registered {} MCP tools ({} skipped due to version/module constraints)",
+                "Registered {} MCP tools ({} skipped due to version/module/category constraints)",
                 registry.size(),
                 skipped.size());
         return registry;

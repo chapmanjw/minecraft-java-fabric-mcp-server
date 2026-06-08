@@ -43,10 +43,30 @@ public final class ConfigLoader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("minecraft_fabric_mcp/config");
 
-    private static final String ENV_PREFIX = "MCP_";
     private static final int TOKEN_BYTES = 32;
 
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+
+    /** Environment-variable prefix for overrides (e.g. {@code MCP_} or {@code MCP_CLIENT_}). */
+    private final String envPrefix;
+
+    /** Base defaults this loader overlays file + env values on top of. */
+    private final Config defaults;
+
+    /** Server-side loader: {@code MCP_} env prefix over {@link Config#defaults()}. */
+    public ConfigLoader() {
+        this("MCP_", Config.defaults());
+    }
+
+    /**
+     * Loader with an explicit env prefix and base defaults. The client entrypoint uses
+     * {@code "MCP_CLIENT_"} + {@link Config#clientDefaults()} so its env overrides never collide
+     * with the server's {@code MCP_*} vars when both run in one process (single-player).
+     */
+    public ConfigLoader(String envPrefix, Config defaults) {
+        this.envPrefix = envPrefix;
+        this.defaults = defaults;
+    }
 
     /**
      * Loads the configuration from disk + environment, validates it, and returns the
@@ -57,7 +77,7 @@ public final class ConfigLoader {
      *     when reading the file surface as {@link ConfigException}.
      */
     public Config load(Path configFile) {
-        Config base = Config.defaults();
+        Config base = defaults;
         Config fromFile = applyFileOverrides(base, configFile);
         Config fromEnv = applyEnvOverrides(fromFile);
         Config validated = validate(fromEnv);
@@ -169,45 +189,45 @@ public final class ConfigLoader {
                 excludeWrites);
     }
 
-    private static String env(String suffix, String fallback) {
-        String v = System.getenv(ENV_PREFIX + suffix);
+    private String env(String suffix, String fallback) {
+        String v = System.getenv(envPrefix + suffix);
         return v == null || v.isBlank() ? fallback : v;
     }
 
-    private static int envInt(String suffix, int fallback) {
-        String v = System.getenv(ENV_PREFIX + suffix);
+    private int envInt(String suffix, int fallback) {
+        String v = System.getenv(envPrefix + suffix);
         if (v == null || v.isBlank()) {
             return fallback;
         }
         try {
             return Integer.parseInt(v.trim());
         } catch (NumberFormatException e) {
-            throw new ConfigException("Env " + ENV_PREFIX + suffix + " is not an integer: " + v, e);
+            throw new ConfigException("Env " + envPrefix + suffix + " is not an integer: " + v, e);
         }
     }
 
-    private static long envLong(String suffix, long fallback) {
-        String v = System.getenv(ENV_PREFIX + suffix);
+    private long envLong(String suffix, long fallback) {
+        String v = System.getenv(envPrefix + suffix);
         if (v == null || v.isBlank()) {
             return fallback;
         }
         try {
             return Long.parseLong(v.trim());
         } catch (NumberFormatException e) {
-            throw new ConfigException("Env " + ENV_PREFIX + suffix + " is not a long: " + v, e);
+            throw new ConfigException("Env " + envPrefix + suffix + " is not a long: " + v, e);
         }
     }
 
-    private static boolean envBool(String suffix, boolean fallback) {
-        String v = System.getenv(ENV_PREFIX + suffix);
+    private boolean envBool(String suffix, boolean fallback) {
+        String v = System.getenv(envPrefix + suffix);
         if (v == null || v.isBlank()) {
             return fallback;
         }
-        return parseBool(v, ENV_PREFIX + suffix);
+        return parseBool(v, envPrefix + suffix);
     }
 
-    private static List<String> envCsv(String suffix, List<String> fallback) {
-        String v = System.getenv(ENV_PREFIX + suffix);
+    private List<String> envCsv(String suffix, List<String> fallback) {
+        String v = System.getenv(envPrefix + suffix);
         if (v == null || v.isBlank()) {
             return fallback;
         }

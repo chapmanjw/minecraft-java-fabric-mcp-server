@@ -56,10 +56,13 @@ naming convention is `MCP_<UPPER_SNAKE_CASE_FIELD>`, e.g. `MCP_PORT=8770`.
 
 ## Tool categories
 
-The server registers tools in ten categories that track the underlying Minecraft subsystems.
-Seven are **on by default**; three (`players`, `gameplay`, `registries`) are **opt-in** so a fresh
-install exposes a lean, builder-focused surface (~102 of the full surface). Operators trim or widen
-the surface by including / excluding categories (lower-case wire names below):
+The server registers tools in eleven categories that track the underlying Minecraft subsystems.
+On a dedicated/headless server, seven are **on by default**; three (`players`, `gameplay`,
+`registries`) are **opt-in** so a fresh install exposes a lean, builder-focused surface (~102 of
+the full surface). The eleventh, `client`, exists **only on the client-side MCP server**
+(`minecraft-java-client`) — see [Two MCP servers: world + inspection](#two-mcp-servers-world--inspection).
+Operators trim or widen the surface by including / excluding categories (lower-case wire names
+below):
 
 | Category | Default | What it covers | Example tools |
 | --- | --- | --- | --- |
@@ -73,6 +76,7 @@ the surface by including / excluding categories (lower-case wire names below):
 | `players` | opt-in | Player info, inventory, messaging, gamemode, spawn, screens | `player_give_item`, `player_set_gamemode`, `player_send_message` |
 | `gameplay` | opt-in | Scoreboards, bossbars, advancements | `scoreboard_add_objective`, `bossbar_add`, `advancement_grant` |
 | `registries` | opt-in | Recipes, loot tables, tags, content registries, resource loading, fluid storage | `recipe_list`, `loot_table_generate`, `tag_get_members` |
+| `client` | client server only | Client-side inspection: capture the rendered first-person frame + read perception. Registered only by `McpClientMod`, never on a dedicated server. | `view_capture`, `sense_crosshair`, `client_status` |
 
 When `included_categories` is empty the default-on set above is the starting point; set
 `included_categories` to override it with an explicit allowlist. `excluded_categories` is then
@@ -217,3 +221,60 @@ might need:
 ```
 
 Drops datapack + server-lifecycle tools; everything else in the default-on set stays.
+
+## Two MCP servers: world + inspection
+
+The mod ships **two entrypoints from one jar**:
+
+- **`McpServerMod`** (the `main` entrypoint) — runs wherever a `MinecraftServer` exists: a
+  dedicated server, or a single-player client's integrated server. It serves the **world** tools
+  (`level_*`, `block_*`, `entity_*`, …). This is the `minecraft-java` endpoint, default port
+  **8765**, config `config/minecraft_fabric_mcp/config.json`, env prefix `MCP_*`. Unchanged from
+  earlier versions.
+- **`McpClientMod`** (the `client` entrypoint) — runs inside a real, rendered client (single-player
+  or a client joined to a remote server). It serves the **inspection** tools (the `client`
+  category: `view_capture`, `sense_*`, `client_status`). This is the `minecraft-java-client`
+  endpoint, default port **8766**, config `config/minecraft_fabric_mcp/client.json`, env prefix
+  `MCP_CLIENT_*`. The client config defaults `included_categories` to `["client"]`, so the endpoint
+  exposes only the inspection surface — that is the flag that keeps it a pure "fill the gaps" view
+  while the world endpoint stays authoritative for everything else.
+
+Capturing the framebuffer needs a real GPU render context, so the **client must run in a normal
+(non-headless) client window** — not a stubbed/headless launcher and not a session-0 service. The
+client config keys are identical to the server's (see the [schema](#schema)); only the file name,
+default port, and env prefix differ.
+
+### Supported patterns
+
+- **Server-only** — a dedicated headless server. Only `minecraft-java` (8765, world tools). No
+  inspection tools (the client entrypoint never runs without a client). This is the classic setup.
+- **Client-only** — launch a single-player client (or a client joined to a server). In
+  single-player the integrated server runs `McpServerMod` too, so **one process exposes both
+  endpoints**: `minecraft-java` (8765, world) and `minecraft-java-client` (8766, inspection).
+  "Run everything with just the client" = this — point Claude at both ports.
+- **Server + client combo** — a dedicated server runs `minecraft-java` (8765); a separate client
+  joins it over loopback and runs `minecraft-java-client` (8766). Claude connects to both. Use the
+  server endpoint to position/aim a player (`entity_teleport` / `tp x y z yaw pitch`) and build;
+  use the client endpoint to capture what that player sees.
+
+### Example client config
+
+`config/minecraft_fabric_mcp/client.json` (optional — these are the defaults):
+
+```json
+{
+  "port": 8766,
+  "included_categories": ["client"]
+}
+```
+
+Or via env (note the `MCP_CLIENT_` prefix so it never collides with the server's `MCP_PORT` when
+both run in one process):
+
+```sh
+MCP_CLIENT_PORT=8766
+```
+
+Remote/authenticated client endpoints follow the same rules as the server endpoint
+(`auth_required`, `bearer_token`, `allow_remote`, TLS) — see the [schema](#schema) and
+[validation rules](#validation-rules).

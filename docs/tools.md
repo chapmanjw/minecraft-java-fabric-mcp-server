@@ -315,6 +315,30 @@ payload. Example: subscribe to chat messages from one player only:
 Filters use direct `JsonNode.equals` semantics — typed values must match exactly. Use no filters
 to receive all events of the subscribed types.
 
+## Client (inspection — `minecraft-java-client` server only)
+
+These tools belong to the **`client`** category and are registered **only by the client-side
+entrypoint** (`McpClientMod`), which runs inside a real, rendered Minecraft client. They are not
+present on a dedicated/headless server's `minecraft-java` endpoint (they are not in
+`ToolRegistration.ALL_TOOL_CLASSES`). They let Claude SEE and INSPECT the world the way a player
+does — the actual rendered frame, plus client-side perception the headless server cannot provide.
+See [configuration.md](configuration.md#two-mcp-servers-world--inspection) for how to run the
+world (server) and inspection (client) endpoints together.
+
+They are deliberately **read-only**: they do not move or aim the player. Position and aim the
+camera from the **server** surface (`entity_teleport`, or `command_execute` with
+`tp <player> <x> <y> <z> <yaw> <pitch>`), then capture here. Full player agency is a separate,
+future scope.
+
+| Name | Description |
+| --- | --- |
+| `view_capture` | Capture the local player's current first-person frame as a PNG `image` content block — the real client render (textures, lighting, sky, fog, water, entities). Optional `downscale` (1–8, default 1) shrinks the frame to keep the inline image small. `close_screen` (default true) dismisses any open GUI — notably the pause/Esc menu that opens when the window loses focus — and lets a clean frame render before capturing, so the shot shows the world; set false to capture the current GUI. (To stop the menu opening on focus loss at all, toggle Pause on Lost Focus off in-game with **F3 + P**.) Large windows make large PNGs — for the inline-image path (~1 MB cap in some clients) raise `downscale` or use a smaller window. Returns an error if the client is not in a world (window must not be minimized). |
+| `client_status` | Local player + session status: `in_game`, dimension, position, facing (yaw/pitch), health, hunger, held item, and the connected server (or `singleplayer`). |
+| `sense_crosshair` | What the crosshair points at right now: `NONE`/`MISS`, a block (position, face, block id), or an entity (type, name). |
+| `sense_raycast` | Raycast from the eye along the current facing; first hit (block or entity) within `max_distance` (default 20), `include_fluids` optional. |
+| `sense_entities` | Entities the client renders within `radius` (default 16) of the player, with type, name, position, distance; optional `type` substring filter. |
+| `sense_screen` | Current GUI state: open screen (class + title) and, when a container other than the inventory is open, a summary of its slot contents. |
+
 ## Known limitations
 
 All 183 registered tools have working adapter implementations against the live Minecraft

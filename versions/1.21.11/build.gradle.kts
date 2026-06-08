@@ -27,6 +27,9 @@ loom {
     mods {
         register(property("mod.id") as String) {
             sourceSet("main")
+            // Client-only inspection tools (view_capture, sense_*, client_status) live in the
+            // split client source set; including it here puts those classes in the mod jar.
+            sourceSet("client")
         }
     }
 

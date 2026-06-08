@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+### Added
+
+- **Client-side inspection MCP server** — a second entrypoint (`McpClientMod`, the Fabric `client`
+  entrypoint) that runs inside a real, rendered Minecraft client and serves a new **`client`** tool
+  category: `view_capture` (the local player's first-person frame as a PNG — the real client render
+  with textures, lighting, sky, fog, entities), plus read-only perception (`client_status`,
+  `sense_crosshair`, `sense_raycast`, `sense_entities`, `sense_screen`). This lets an agent SEE and
+  inspect the world the way a player does and fill the gap the headless server cannot: real rendered
+  pixels. It runs as a separate endpoint — `minecraft-java-client`, default port **8766**, config
+  `config/minecraft_fabric_mcp/client.json`, env prefix `MCP_CLIENT_*` — and defaults its
+  `included_categories` to `["client"]` so it exposes only the inspection surface. The world endpoint
+  (`minecraft-java`, 8765) is unchanged. Supports server-only, client-only (single-player exposes
+  both endpoints from one process), and server+client combo deployments. The tools are read-only;
+  position/aim the player from the server endpoint (`entity_teleport` / `tp … yaw pitch`) then
+  capture. See [docs/configuration.md](docs/configuration.md#two-mcp-servers-world--inspection) and
+  [docs/tools.md](docs/tools.md#client-inspection--minecraft-java-client-server-only).
+- The shared `ToolContext` gained an optional `ClientAccess` seam (no `net.minecraft.client.*` in
+  its signatures, so a dedicated server never classloads client/render types); `ConfigLoader` is now
+  parameterized by env prefix + base defaults so the client endpoint's `MCP_CLIENT_*` overrides
+  never collide with the server's `MCP_*`.
+
 ## [0.4.0] - 2026-05-30
 
 Six new terrain tools, plus a re-categorised tool surface. The tool universe

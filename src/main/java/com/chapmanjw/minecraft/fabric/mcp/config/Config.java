@@ -140,4 +140,34 @@ public record Config(
                 ToolAccess.WRITE.wireName(),
                 false);
     }
+
+    /**
+     * Defaults for the client-side MCP server ({@code McpClientMod}). Differs from
+     * {@link #defaults()} in two ways: a distinct port ({@code 8766}) so it never collides with
+     * the server endpoint when both run in one process (single-player), and an
+     * {@code includedCategories} allowlist of {@code ["client"]} so the endpoint exposes only the
+     * inspection tools by default. Operators can still widen/narrow via config / env.
+     */
+    public static Config clientDefaults() {
+        return new Config(
+                "127.0.0.1",
+                8766,
+                false,
+                null,
+                false,
+                List.of(),
+                15_000L,
+                60,
+                16 * 1024 * 1024,
+                1024,
+                256,
+                "info",
+                null,
+                null,
+                false,
+                List.of("client"),
+                List.of(),
+                ToolAccess.WRITE.wireName(),
+                false);
+    }
 }

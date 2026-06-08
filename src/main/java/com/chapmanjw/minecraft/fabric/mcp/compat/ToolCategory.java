@@ -57,7 +57,16 @@ public enum ToolCategory {
     REGISTRIES,
 
     /** Server lifecycle / admin: status, motd, save, reload, datapacks. */
-    SERVER;
+    SERVER,
+
+    /**
+     * Client-only inspection: capture the rendered first-person frame and read client-side
+     * perception (crosshair, raycast, nearby entities, open screen). These tools only exist on
+     * the client MCP server ({@code McpClientMod}); a dedicated server never registers them
+     * (they are not in {@code ToolRegistration.ALL_TOOL_CLASSES}). Opt-in like the other
+     * non-core categories.
+     */
+    CLIENT;
 
     /**
      * Static mapping from each known tool-name domain prefix to its category.
@@ -104,7 +113,11 @@ public enum ToolCategory {
             Map.entry("fluid_storage", REGISTRIES),
             // server
             Map.entry("server", SERVER),
-            Map.entry("datapack", SERVER));
+            Map.entry("datapack", SERVER),
+            // client (inspection-only; registered solely by McpClientMod)
+            Map.entry("view", CLIENT),
+            Map.entry("sense", CLIENT),
+            Map.entry("client", CLIENT));
 
     /**
      * Resolve the category for a tool wire-name. Tries the longest two-segment prefix
@@ -166,7 +179,7 @@ public enum ToolCategory {
     public boolean enabledByDefault() {
         return switch (this) {
             case BLOCKS, STRUCTURES, WORLD, ENTITIES, ITEMS, SCRIPTING, SERVER -> true;
-            case PLAYERS, GAMEPLAY, REGISTRIES -> false;
+            case PLAYERS, GAMEPLAY, REGISTRIES, CLIENT -> false;
         };
     }
 }

@@ -347,8 +347,10 @@ tasks.withType<JacocoReport>().configureEach {
         // `com.chapmanjw.minecraft.fabric.mcp.*`; older patterns referenced
         // `com.chapmanjw.mcpserver.*` and silently excluded nothing.
         "com/chapmanjw/minecraft/fabric/mcp/adapter/impl/**",
+        "com/chapmanjw/minecraft/fabric/mcp/adapter/client/**",
         "com/chapmanjw/minecraft/fabric/mcp/tools/**",
-        "com/chapmanjw/minecraft/fabric/mcp/McpServerMod*"
+        "com/chapmanjw/minecraft/fabric/mcp/McpServerMod*",
+        "com/chapmanjw/minecraft/fabric/mcp/McpClientMod*"
     )
     classDirectories.setFrom(
         files(classDirectories.files.map {
