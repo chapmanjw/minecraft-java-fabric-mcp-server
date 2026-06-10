@@ -38,7 +38,7 @@ pluginManagement {
 plugins {
     // Stonecutter drives the multi-version build (one source tree → N jars).
     // Pin to the 0.8.x line to avoid unexpected plugin upgrades breaking the matrix.
-    id("dev.kikugie.stonecutter") version "0.9.4"
+    id("dev.kikugie.stonecutter") version "0.9.5"
     // Auto-provision JVM toolchains the matrix needs (e.g. Java 21 for the 1.21.x
     // node) when no matching local JDK is detected. Gradle's auto-detection does
     // not scan some vendor install dirs (e.g. C:\Program Files\Amazon Corretto),
