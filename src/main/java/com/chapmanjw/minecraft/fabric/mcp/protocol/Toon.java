@@ -112,10 +112,8 @@ public final class Toon {
     // --- objects -------------------------------------------------------------
 
     private static void writeObjectFields(StringBuilder sb, ObjectNode obj, int depth, int indent) {
-        Iterator<Map.Entry<String, JsonNode>> it = obj.fields();
         boolean first = true;
-        while (it.hasNext()) {
-            Map.Entry<String, JsonNode> e = it.next();
+        for (Map.Entry<String, JsonNode> e : obj.properties()) {
             if (!first) {
                 sb.append('\n');
             }
@@ -261,7 +259,7 @@ public final class Toon {
     private static void writeListItemObject(
             StringBuilder sb, ObjectNode obj, int depth, int indent) {
         // Per §10: first field goes on the hyphen line. Remaining fields at depth + 1.
-        Iterator<Map.Entry<String, JsonNode>> it = obj.fields();
+        Iterator<Map.Entry<String, JsonNode>> it = obj.properties().iterator();
         Map.Entry<String, JsonNode> first = it.next();
 
         sb.append("- ");
@@ -370,10 +368,8 @@ public final class Toon {
                 return null;
             }
             // Verify every value is a primitive (no nested objects/arrays).
-            Iterator<Map.Entry<String, JsonNode>> it = element.fields();
             Set<String> localKeys = new LinkedHashSet<>();
-            while (it.hasNext()) {
-                Map.Entry<String, JsonNode> e = it.next();
+            for (Map.Entry<String, JsonNode> e : element.properties()) {
                 JsonNode v = e.getValue();
                 if (v != null && (v.isObject() || v.isArray())) {
                     return null;

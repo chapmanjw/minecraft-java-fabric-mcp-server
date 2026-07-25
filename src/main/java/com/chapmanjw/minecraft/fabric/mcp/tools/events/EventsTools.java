@@ -105,7 +105,7 @@ public final class EventsTools {
             Map<String, JsonNode> filters = new HashMap<>();
             JsonNode f = r.optObject("filters");
             if (f != null) {
-                f.fields().forEachRemaining(e -> filters.put(e.getKey(), e.getValue()));
+                f.properties().forEach(e -> filters.put(e.getKey(), e.getValue()));
             }
             String id = context.eventBus().subscribe(types, filters);
             ObjectNode result = context.mapper().createObjectNode();
