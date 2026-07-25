@@ -17,8 +17,8 @@ token configuration and no firewall changes.
 ## Step 1 — Install Fabric Loader
 
 Download the official installer from <https://fabricmc.net/use/installer/> and run it from the
-command line, replacing `<version>` with your target Minecraft version (`1.21.11`, `26.1.1`, or
-`26.1.2`):
+command line, replacing `<version>` with your target Minecraft version (`1.21.11`, `26.1.1`,
+`26.1.2`, or `26.2`):
 
 **macOS:**
 ```sh

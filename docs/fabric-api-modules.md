@@ -103,18 +103,18 @@ The following modules / helpers were removed in Minecraft 26.1.x and are NOT in 
 
 ## Cross-version availability summary
 
-| Module | 1.21.11 | 26.1.1 | 26.1.2 |
-| --- | --- | --- | --- |
-| `fabric-lifecycle-events-v1` | ✅ | ✅ | ✅ |
-| `fabric-command-api-v1` | ✅ (deprecated) | ❌ | ❌ |
-| `fabric-command-api-v2` | ✅ | ✅ | ✅ |
-| `fabric-biome-api-v1` | ✅ | ✅ | ✅ |
-| `fabric-data-attachment-api-v1` | ✅ | ✅ | ✅ |
-| `fabric-loot-api-v3` | ✅ | ✅ | ✅ |
-| `fabric-recipe-api-v1` | ✅ | ✅ | ✅ |
-| `fabric-particles-v1` | ✅ | ✅ | ✅ |
-| `fabric-message-api-v1` | ✅ | ✅ | ✅ |
-| `TradeOfferHelper` (utility) | ✅ | ❌ | ❌ |
+| Module | 1.21.11 | 26.1.1 | 26.1.2 | 26.2 |
+| --- | --- | --- | --- | --- |
+| `fabric-lifecycle-events-v1` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-command-api-v1` | ✅ (deprecated) | ❌ | ❌ | ❌ |
+| `fabric-command-api-v2` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-biome-api-v1` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-data-attachment-api-v1` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-loot-api-v3` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-recipe-api-v1` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-particles-v1` | ✅ | ✅ | ✅ | ✅ |
+| `fabric-message-api-v1` | ✅ | ✅ | ✅ | ✅ |
+| `TradeOfferHelper` (utility) | ✅ | ❌ | ❌ | ❌ |
 
 A tool whose `@McpTool` annotation lists a module that isn't loaded simply doesn't register — see
 [docs/version-compatibility.md](version-compatibility.md) for how the filter works at runtime.

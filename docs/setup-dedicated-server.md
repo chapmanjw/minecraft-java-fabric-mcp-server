@@ -10,7 +10,7 @@ headless Minecraft server that other clients connect to. Use this when:
 
 - A Linux or Windows host with the right JDK for your Minecraft target:
   - **Java 21** for the 1.21.11 jar.
-  - **Java 25** for the 26.1.1 / 26.1.2 jars.
+  - **Java 25** for the 26.1.1 / 26.1.2 / 26.2 jars.
 - About 20 minutes.
 
 ## Step 1 — Install Fabric dedicated server

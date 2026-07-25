@@ -4,13 +4,20 @@ The mod ships **one jar per supported Minecraft version**, built from a single s
 [Stonecutter](https://stonecutter.kikugie.dev). Each jar is paired with the matching Fabric API
 and Fabric Loader versions; using mismatched dependencies is unsupported.
 
-## Supported build matrix (v0.2.0)
+## Supported build matrix (v1.0.1)
 
 | Minecraft | Fabric Loader | Fabric API           | Mappings        | JDK | Loom plugin ID                  |
 | --------- | ------------- | -------------------- | --------------- | --- | ------------------------------- |
-| 1.21.11   | 0.19.2        | 0.141.4+1.21.11      | Mojang official | 21  | `fabric-loom` (LoomGradlePlugin)         |
+| 1.21.11   | 0.19.2        | 0.141.5+1.21.11      | Mojang official | 21  | `fabric-loom` (LoomGradlePlugin)         |
 | 26.1.1    | 0.19.2        | 0.145.4+26.1.1       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
-| 26.1.2    | 0.19.2        | 0.149.0+26.1.2       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.1.2    | 0.19.2        | 0.155.2+26.1.2       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.2      | 0.19.2        | 0.155.2+26.2         | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+
+Each jar declares `depends.minecraft` as the **exact** version it was built against — the 26.2 jar
+is `"26.2"`, not `">=26.2"` — so Fabric Loader accepts it on that version and refuses it anywhere
+else. Download the jar whose `+suffix` matches your game; installing the wrong one fails at load
+with a clear message rather than at runtime on a missing symbol. The targets are deliberately not
+interchangeable: 26.2 removed API that 26.1.x has, and 1.21.11 predates the 26 API surface entirely.
 
 The three architectural seams are:
 
@@ -41,8 +48,8 @@ The three architectural seams are:
    `MinecraftAdapterImpl.java` handles these with Stonecutter `//? if mc_gte_26 { … } //?} else
    { /*…*/ //?}` blocks. Tools that depend on a 26.1+ feature can declare
    `minMinecraftVersion = "26.1.0"` in their `@McpTool`; tools that depend on a removed API
-   declare `maxMinecraftVersion = "1.21.99"`. In practice the v0.2.0 tool surface is identical
-   across all three targets.
+   declare `maxMinecraftVersion = "1.21.99"`. In practice the tool surface is identical across
+   all four targets.
 
 ## How the runtime filter works
 
@@ -92,14 +99,14 @@ checked-in source has the latest-targeted branch active (matching `vcsVersion = 
 
 The complete cross-version matrix lives in [docs/tools.md](tools.md). High-level summary:
 
-| Feature | 1.21.11 | 26.1.1 | 26.1.2 |
-| --- | --- | --- | --- |
-| All core tools (server, level, block, entity, player, …) | ✅ | ✅ | ✅ |
-| `level_get_biome_at`, `level_list_biomes_in_dimension` | ✅ (requires `fabric-biome-api-v1`) | ✅ | ✅ |
-| `data_attachment_*` | ✅ (requires `fabric-data-attachment-api-v1`) | ✅ | ✅ |
-| `loot_table_*` | ✅ (requires `fabric-loot-api-v3`) | ✅ | ✅ |
-| `recipe_*` | ✅ (requires `fabric-recipe-api-v1`) | ✅ | ✅ |
-| Trading-related tools (planned) | ✅ (via `TradeOfferHelper`) | 🚧 (data-driven trades only) | 🚧 |
+| Feature | 1.21.11 | 26.1.1 | 26.1.2 | 26.2 |
+| --- | --- | --- | --- | --- |
+| All core tools (server, level, block, entity, player, …) | ✅ | ✅ | ✅ | ✅ |
+| `level_get_biome_at`, `level_list_biomes_in_dimension` | ✅ (requires `fabric-biome-api-v1`) | ✅ | ✅ | ✅ |
+| `data_attachment_*` | ✅ (requires `fabric-data-attachment-api-v1`) | ✅ | ✅ | ✅ |
+| `loot_table_*` | ✅ (requires `fabric-loot-api-v3`) | ✅ | ✅ | ✅ |
+| `recipe_*` | ✅ (requires `fabric-recipe-api-v1`) | ✅ | ✅ | ✅ |
+| Trading-related tools (planned) | ✅ (via `TradeOfferHelper`) | 🚧 (data-driven trades only) | 🚧 | 🚧 |
 
 A tool whose registration is conditional on a Fabric API module simply doesn't appear in `tools/list`
 when that module is missing — there's no error path the client has to handle.
@@ -110,16 +117,38 @@ The `client` category (`view_capture`, `sense_*`, `client_status`) is served onl
 entrypoint (`McpClientMod`) running inside a real client — see
 [architecture.md](architecture.md#client-entrypoint-mcpclientmod-and-the-clientaccess-seam) and
 [configuration.md](configuration.md#two-mcp-servers-world--inspection). It carries no per-version
-`@McpTool` constraints (the tools are present on every client target), and all client/render
-symbols it uses were **verified by `javap` against the client jars of all three targets — 1.21.11,
-26.1.1, and 26.1.2 — and are identical across them**, so no Stonecutter split is needed. The
-load-bearing capture facts (true on all three): the only capture entry point is the callback form
-`Screenshot.takeScreenshot(RenderTarget, [int downScale,] Consumer<NativeImage>)` (there is no
-`NativeImage`-returning overload), and `NativeImage` has no in-memory byte export — only
-`writeToFile(File/Path)` — so `view_capture` round-trips a temp PNG. All client coupling is
-localized in `adapter.client.ClientAccessImpl` behind the stable `ClientAccess` interface; if a
-*future* version diverges, gate the difference there with the same Stonecutter `//? if mc >= …`
-blocks the adapter uses.
+`@McpTool` constraints — every client tool is present on every client target, including 26.2.
+
+The load-bearing capture facts hold on all four targets: the only capture entry point is the
+callback form `Screenshot.takeScreenshot(RenderTarget, [int downScale,] Consumer<NativeImage>)`
+(there is no `NativeImage`-returning overload), and `NativeImage` has no in-memory byte export —
+only `writeToFile(File/Path)` — so `view_capture` round-trips a temp PNG.
+
+**26.2 diverged.** Through 26.1.x the client symbols were identical across targets and needed no
+Stonecutter split. 26.2 changed three of them, all verified by `javap` against the client jars:
+
+| Symbol | 1.21.11 / 26.1.x | 26.2 |
+| --- | --- | --- |
+| current screen | `Minecraft.screen` (public field) | `Minecraft.gui.screen()` — moved to `Gui` |
+| close a screen | `Minecraft.setScreen(Screen)` | `Minecraft.setScreenAndShow(Screen)` |
+| main framebuffer | `Minecraft.getMainRenderTarget()` | `Minecraft.gameRenderer.mainRenderTarget()` |
+
+The screen accessor was *moved*, not deleted: `Minecraft.gui` is `public final Gui` and `Gui.screen()`
+is a public getter. No mixin is needed and none is used — this mod ships `"mixins": []`.
+
+**The null check before closing a screen is load-bearing and must not be removed.** `Gui.setScreen(null)`
+is not a no-op when no screen is open: its bytecode throws `IllegalStateException` during client
+teardown, constructs a `TitleScreen` when the level is gone, constructs a `DeathScreen`, and — for a
+dying player on a world with the death screen suppressed — calls `LocalPlayer.respawn()`, which sends
+a respawn packet to the server. `view_capture` is declared `readOnly`, so it must never reach that
+path. The 26.1.x branch is guarded by `mc.screen != null` and the 26.2 branch by
+`mc.gui.screen() != null`, for the same reason.
+
+Note also that `setScreenAndShow` renders an extra out-of-band frame that plain `setScreen` did not.
+
+All client coupling stays localized in `adapter.client.ClientAccessImpl` behind the stable
+`ClientAccess` interface, gated with the `mc_gte_26_2` Stonecutter constant. Targets at or below
+26.1.x keep the original field reads unchanged.
 
 ## Building a different target locally
 

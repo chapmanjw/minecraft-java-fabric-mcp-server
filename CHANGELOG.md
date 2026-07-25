@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 1.0.1
+
+Adds Minecraft **26.2** as a fourth build target and moves every existing target to
+its current Fabric API. 26.2 is not a drop-in: it removed API this mod depended on,
+including the client-side screen accessor that `sense_screen` was built around, so
+the client inspection surface needed real porting rather than a version bump.
+
+### Added
+
+- **Minecraft 26.2 target.** Fourth Stonecutter subproject (`versions/26.2/`), Fabric API
+  `0.155.2+26.2`, unobfuscated mappings, JDK 25. Added to the CI build matrix, the release publish
+  matrix, and the Dependabot `directories` list. `vcsVersion` stays at `26.1.2` — both resolve the
+  same gate state, so the committed source is unchanged either way.
+- **`mc_gte_26_2` Stonecutter constant** for the APIs 26.2 changed. It compares major and minor
+  only, so `26.1.2` is correctly `false` (its minor is 1, not 2) — a string comparison would get
+  that wrong.
+- On 26.2 the current screen is read from `Minecraft.gui.screen()`. The accessor moved from the
+  `Minecraft.screen` field onto `Gui`; it was not removed, and no mixin is needed. Targets at or
+  below 26.1.x still read the field directly.
+
+### Changed
+
+- Fabric API moved to `0.155.2+26.1.2` (from `0.149.0`) and `0.141.5+1.21.11` (from `0.141.4`).
+  26.1.1 stays on `0.145.4`, which is the newest release for that line.
+- `EntityType.LIGHTNING_BOLT` → `EntityTypes.LIGHTNING_BOLT` on 26.2. 26.2 emptied `EntityType` of
+  its constants — all 157 of them moved to a new `EntityTypes` class.
+- Team colour now reads through a helper: 26.2 changed `Team.getColor()` from a nullable
+  `ChatFormatting` to `Optional<TeamColor>`. Both spellings produce the same lowercase colour name,
+  so tool output is unchanged.
+- On 26.2, `view_capture` reads the framebuffer via `gameRenderer.mainRenderTarget()` and closes
+  screens with `setScreenAndShow(null)`; both replaced members that 26.2 removed from `Minecraft`.
+
+### Fixed
+
+- **Five tools were silently disabled on every version.** `player_screen_open_menu`,
+  `player_screen_open_container`, `player_screen_close`, `resource_loader_list_namespaces` and
+  `resource_loader_get_resource` declared `requiredFabricModules` naming
+  `fabric-screen-handler-api-v1` and `fabric-resource-loader-v0`, neither of which Fabric API ships.
+  A required module that is not installed causes the tool to be skipped, so these never registered.
+  Neither file references a Fabric API class at all — the `tools/` layer is Minecraft-free by design
+  — so the declarations were removed rather than corrected.
+- `DefaultToolSurfaceTest` fabricated both non-existent modules in its "full module environment",
+  which is why the above went unnoticed: module filtering was a guaranteed no-op in that test.
+- **`depends.minecraft` is now pinned to the exact Minecraft version each jar was built against**,
+  replacing the previous open-ended `>=major.minor` constraint. Each jar loads on its own version
+  and is refused everywhere else.
+
+  The old form was under-constrained in both directions. Upward, `>=` let an older jar be accepted
+  on a newer game — the 26.1.2 jar declared `>=26.1`, so Fabric Loader would install it on 26.2 and
+  then fail on `EntityType.LIGHTNING_BOLT`, which 26.2 removed. The 1.21.11 jar declared `>=1.21`,
+  which a semantic-version comparison satisfies on 26.x. Separately, the constraint was derived with
+  `substringBeforeLast('.')`, which assumes a three-part version, so the two-part `26.2` collapsed
+  to `>=26` and would have been accepted on 26.1.x as well.
+
+  Since the targets are not source-compatible with one another, a loader-level refusal with a clear
+  message is far better than a runtime linkage error.
+- **`mc_constraint` was not declared as a `processResources` input**, so changing how it is derived
+  left the task `UP-TO-DATE` and silently kept templating the previous value into
+  `fabric.mod.json`. It is now a tracked input.
+
 ## [1.0.0] - 2026-06-07
 
 The 1.0 milestone. The mod now sees as well as acts: alongside the headless world

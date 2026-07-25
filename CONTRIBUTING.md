@@ -52,9 +52,12 @@ Gradle cache.
     ├── 26.1.1/
     │   ├── build.gradle.kts         # uses id("net.fabricmc.fabric-loom") — LoomNoRemap
     │   └── gradle.properties        # 26.1.1 deps + JDK 25
-    └── 26.1.2/
+    ├── 26.1.2/
+    │   ├── build.gradle.kts         # uses id("net.fabricmc.fabric-loom") — LoomNoRemap
+    │   └── gradle.properties        # 26.1.2 deps + JDK 25
+    └── 26.2/
         ├── build.gradle.kts         # uses id("net.fabricmc.fabric-loom") — LoomNoRemap
-        └── gradle.properties        # 26.1.2 deps + JDK 25
+        └── gradle.properties        # 26.2 deps + JDK 25
 ```
 
 The per-version split is intentional: Fabric Loom 1.16+ ships two plugin IDs (`fabric-loom`
