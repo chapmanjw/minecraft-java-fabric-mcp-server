@@ -153,8 +153,13 @@ Stonecutter split. 26.2 changed three of them, all verified by `javap` against t
 | Symbol | 1.21.11 / 26.1.x | 26.2 |
 | --- | --- | --- |
 | current screen | `Minecraft.screen` (public field) | `Minecraft.gui.screen()` — moved to `Gui` |
-| close a screen | `Minecraft.setScreen(Screen)` | `Minecraft.setScreenAndShow(Screen)` |
+| close a screen | `Minecraft.setScreen(Screen)` | `Minecraft.gui.setScreen(Screen)` — moved to `Gui` |
 | main framebuffer | `Minecraft.getMainRenderTarget()` | `Minecraft.gameRenderer.mainRenderTarget()` |
+
+Both screen members moved onto `Gui` together. `Minecraft.setScreenAndShow` is **not** that rename —
+it exists on 26.1.x as well, and it wraps `Gui.setScreen` with an extra synchronous `renderFrame`.
+Using it on 26.2 would make `view_capture` render an out-of-band frame that the other three targets
+do not, so the adapter calls `Gui.setScreen` directly.
 
 The screen accessor was *moved*, not deleted: `Minecraft.gui` is `public final Gui` and `Gui.screen()`
 is a public getter. No mixin is needed and none is used — this mod ships `"mixins": []`.

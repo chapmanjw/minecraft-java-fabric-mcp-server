@@ -141,7 +141,7 @@ Minecraft Launcher and creates a `mods/` folder under your game directory.
 ### 4. Download the mod and Fabric API
 
 - This mod — get it from your preferred mod host and pick the jar whose suffix matches your
-  Minecraft version (e.g. `minecraft-fabric-mcp-0.2.0+1.21.11.jar`):
+  Minecraft version (e.g. `minecraft-fabric-mcp-1.0.1+1.21.11.jar`):
   - **[Modrinth](https://modrinth.com/mod/fabric-api-mcp-server)** (recommended)
   - **[CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api-mcp-server)**
   - or the [GitHub Releases page](https://github.com/chapmanjw/minecraft-java-fabric-mcp-server/releases).

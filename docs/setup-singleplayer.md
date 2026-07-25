@@ -57,9 +57,15 @@ Your mods folder should look like:
 
 ```
 mods/
-├── fabric-api-0.149.1+<version>.jar
-└── minecraft-fabric-mcp-0.2.0+<version>.jar
+├── fabric-api-<api-version>+<mc-version>.jar
+└── minecraft-fabric-mcp-<mod-version>+<mc-version>.jar
 ```
+
+Both `<mc-version>` suffixes must be the SAME and must match your game. The mod jar declares
+an exact `depends.minecraft`, so a mismatched pair is refused at load with a clear message.
+The Fabric API build must also be at least the one the mod was built against — see the
+matrix in [version-compatibility.md](version-compatibility.md), currently `0.141.5+1.21.11`,
+`0.145.4+26.1.1`, `0.155.2+26.1.2` and `0.155.2+26.2`.
 
 ## Step 3 — Launch the game with Fabric
 

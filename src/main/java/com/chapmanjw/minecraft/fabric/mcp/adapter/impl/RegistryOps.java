@@ -681,17 +681,43 @@ final class RegistryOps {
     Optional<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockFamilyInfo> blockFamilyOf(
             String blockId) {
         Identifier wanted = AdapterContext.parseIdentifier(blockId);
+        // BuiltInRegistries.BLOCK is a DefaultedRegistry: getValue() answers with the default entry
+        // (minecraft:air) for an unregistered id rather than null, so a null check would never fire
+        // and a typo'd block would masquerade as "air, which is in no family". getOptional() is the
+        // real existence check.
         net.minecraft.world.level.block.Block target =
-                net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(wanted);
-        if (target == null) {
-            return Optional.empty();
-        }
-        return net.minecraft.data.BlockFamilies.getAllFamilies()
-                .filter(
-                        family ->
-                                family.getBaseBlock() == target
-                                        || family.getVariants().containsValue(target))
+                net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                        .getOptional(wanted)
+                        .orElseThrow(
+                                () ->
+                                        new AdapterException(
+                                                "Unknown block id: "
+                                                        + blockId
+                                                        + " (not present in the block registry)"));
+        // Resolution order matters and must be deterministic. Around 25 vanilla blocks are BOTH the
+        // base of one family and a variant of another — cobblestone is the base of the cobblestone
+        // family and also the `cobbled` variant of the stone family; likewise stone_bricks,
+        // polished_deepslate, the cut_copper set, and others. BlockFamilies stores families in a
+        // plain HashMap keyed by Block, and Block does not override hashCode, so iteration follows
+        // identity-hash order and varies between JVM runs. Taking the first match would therefore
+        // answer differently for those blocks across restarts.
+        //
+        // Prefer the family the block is the BASE of, which is the answer a caller means by "what
+        // shapes exist for this block". Fall back to variant membership only when no family has it
+        // as a base, and break ties there by base-block id so the result is stable.
+        java.util.List<net.minecraft.data.BlockFamily> families =
+                net.minecraft.data.BlockFamilies.getAllFamilies().toList();
+
+        return families.stream()
+                .filter(family -> family.getBaseBlock() == target)
                 .findFirst()
+                .or(
+                        () ->
+                                families.stream()
+                                        .filter(f -> f.getVariants().containsValue(target))
+                                        .min(
+                                                java.util.Comparator.comparing(
+                                                        f -> blockIdOf(f.getBaseBlock()))))
                 .map(
                         family -> {
                             java.util.Map<String, String> variants = new java.util.LinkedHashMap<>();

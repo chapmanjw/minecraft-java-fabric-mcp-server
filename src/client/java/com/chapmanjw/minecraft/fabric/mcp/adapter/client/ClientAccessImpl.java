@@ -92,8 +92,11 @@ public final class ClientAccessImpl implements ClientAccess {
                     () -> {
                         Minecraft mc = Minecraft.getInstance();
                         //? if mc_gte_26_2 {
-                        /*// 26.2 moved the current-screen accessor from the Minecraft.screen field
-                        // to Gui.screen(), and renamed setScreen to setScreenAndShow.
+                        /*// 26.2 moved BOTH the current-screen accessor and the setter onto Gui:
+                        // Minecraft.screen -> Gui.screen(), Minecraft.setScreen -> Gui.setScreen.
+                        // setScreenAndShow is NOT that rename — it existed on 26.1.x too, and it
+                        // wraps Gui.setScreen with an extra synchronous renderFrame. Use
+                        // Gui.setScreen so all four targets do the same amount of work.
                         //
                         // The null check is NOT an optimisation and must not be dropped:
                         // Gui.setScreen(null) is far from a no-op when no screen is open. Its
@@ -103,7 +106,7 @@ public final class ClientAccessImpl implements ClientAccess {
                         // — calls LocalPlayer.respawn(), which sends a respawn packet. view_capture
                         // is declared readOnly, so it must never be able to do that.
                         if (mc != null && mc.gui.screen() != null) {
-                            mc.setScreenAndShow(null);
+                            mc.gui.setScreen(null);
                         }
                         *///?} else {
                         if (mc != null && mc.screen != null) {
