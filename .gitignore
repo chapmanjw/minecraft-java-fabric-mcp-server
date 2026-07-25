@@ -66,3 +66,7 @@ test-output/
 
 # Local-test cache (test-in-game.ps1 downloads Fabric installer + API here)
 scripts/.cache/
+
+# Local research notes and verification receipts (upgrade baselines, wire-format
+# captures, investigation notes). Kept on disk for reference, never committed.
+.research/
