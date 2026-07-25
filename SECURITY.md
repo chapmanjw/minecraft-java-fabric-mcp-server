@@ -35,27 +35,41 @@ This mod is a single Fabric jar. The only third-party code it bundles is **Jacks
 Loom's `include` configuration); everything else it needs at runtime — Minecraft, the Fabric Loader,
 the Fabric API, SLF4J — is provided by the host game, not packaged by us.
 
-The Gradle build, by contrast, pulls in a large transitive tree through the **Fabric Loom** and
-**Stonecutter** plugins: netty, lz4-java, jgit, plexus-utils, log4j-core, commons-* and friends.
-These are **build-time tooling only** — they run on a maintainer's machine or in CI to download,
-remap, and package Minecraft. **None of them are bundled in or reachable from the published mod
-jar** (you can confirm: `unzip -l minecraft-fabric-mcp-*.jar` lists no `netty`, `log4j`, `jgit`,
-etc.).
+The Gradle build, by contrast, resolves a large transitive tree through the **Fabric Loom** and
+**Stonecutter** plugins. It splits into two groups that a Dependabot triage has to tell apart:
+
+- **Genuine build-time tooling** — jgit, plexus-utils, log4j-core, commons-* and the plugins' own
+  internals. These run on a maintainer's machine or in CI to download, remap, and package
+  Minecraft, and never execute in a deployed installation.
+- **Host-supplied runtime libraries** — notably netty (Minecraft's network stack) and lz4-java.
+  These are *not* build-time only: they execute inside the Minecraft process at game runtime. They
+  are supplied by Mojang as part of the host game, not declared, pinned, shaded, or bundled by us.
+
+Neither group is bundled in the published mod jar (you can confirm: `unzip -l
+minecraft-fabric-mcp-*.jar` lists no `netty`, `lz4`, `log4j`, `jgit` — only Jackson under
+`META-INF/jars/`).
 
 Consequently:
 
-- We treat dependency vulnerabilities by **where the code runs**, not merely by their presence in
-  the dependency graph. A CVE in a build-classpath transitive dependency of a Gradle plugin is **not
-  a vulnerability in the shipped mod** and poses no risk to anyone running it. We dismiss such
-  Dependabot alerts as *tolerable risk* with a note pointing here, and we rely on upstream plugin
-  releases to advance those transitives.
+- We treat dependency vulnerabilities by **where the vulnerable code runs and whether it is ever
+  exercised**, not merely by a package's presence in the dependency graph. Non-bundling alone does
+  not settle an alert: for a host-supplied library we check whether the specific vulnerable class
+  or operation is reachable. Minecraft's protocol compression, for example, uses `java.util.zip`
+  zlib/DEFLATE handlers and never installs netty's bzip2 codec, and this mod adds no netty channel
+  handlers and synthesizes no game-protocol packets. We dismiss such Dependabot alerts as
+  **`not_used`** — GitHub's reason for *the vulnerable code is not actually used* — with a note
+  pointing here, and we rely on upstream plugin and game releases to advance those transitives.
+  We reserve **`tolerable_risk`** for the different case where a vulnerable path genuinely is
+  reachable but the residual exposure is consciously accepted; we will say so explicitly if that
+  ever arises.
 - Dependabot version updates are scoped to **direct** dependencies (see
   [`.github/dependabot.yml`](.github/dependabot.yml)) — the deps we actually declare and pin.
 - A CVE in a dependency we **ship** (today: Jackson) or that runs as part of the **mod's runtime**
   is in scope and handled per the response targets below.
 
-If you believe a build-time dependency is actually reachable from the published artifact (e.g. we
-started shading something new), that's a real finding — please report it.
+If you believe one of these dependencies is actually reachable — because we started shading
+something new, or because code we ship does exercise a vulnerable class in a host-supplied library
+— that's a real finding, please report it.
 
 ## Severity ratings
 
