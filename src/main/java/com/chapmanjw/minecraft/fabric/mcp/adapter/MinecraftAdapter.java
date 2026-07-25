@@ -644,6 +644,18 @@ public interface MinecraftAdapter {
 
     Optional<byte[]> resourceLoaderGetResource(String namespace, String path);
 
+    /**
+     * The shape family a block belongs to, if any — its base block plus every shape variant vanilla
+     * defines for it. Accepts either the base block or any variant of it, so it answers both "what
+     * shapes exist for oak planks" and "what family do mossy cobblestone stairs belong to".
+     *
+     * <p>Empty when the block is not part of any family (most blocks are not). Note that the ABSENCE
+     * of a variant is the useful signal: it is how a caller learns that, say, a wall variant of a
+     * given block simply does not exist in vanilla.
+     */
+    Optional<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockFamilyInfo> blockFamilyOf(
+            String blockId);
+
     // =====================================================================
     // Content Registry (Fabric)
     // =====================================================================

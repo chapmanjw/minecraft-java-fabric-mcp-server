@@ -232,6 +232,7 @@ public final class ToolRegistration {
                     RegistryAccessTools.TagListInRegistry.class,
                     RegistryAccessTools.TagGetMembers.class,
                     RegistryAccessTools.TagCheckMembership.class,
+                    RegistryAccessTools.BlockFamilyVariants.class,
                     RegistryAccessTools.ResourceListNs.class,
                     RegistryAccessTools.ResourceGet.class,
                     // events

@@ -101,4 +101,76 @@ class DefaultToolSurfaceTest {
         assertFalse(survivors.contains("player_give_item"), "player_give_item (players) should be OUT");
         assertFalse(survivors.contains("recipe_list"), "recipe_list (registries) should be OUT");
     }
+
+    /**
+     * Regression guard for tools that were silently filtered out at runtime by
+     * {@code requiredFabricModules} entries naming modules Fabric API does not ship
+     * (fabric-screen-handler-api-v1, fabric-resource-loader-v0). They registered fine in this test
+     * only because {@link #fullModuleEnv()} used to fabricate those modules, so the outage was
+     * invisible here for as long as it existed.
+     *
+     * <p>This asserts against an environment built from the modules Fabric API ACTUALLY ships, so a
+     * future bogus module requirement fails the suite instead of silently dropping a tool.
+     */
+    @Test
+    void everyDeclaredFabricModuleIsOneFabricApiActuallyShips() {
+        // The modules Fabric API really ships, as listed in its POM. Notably ABSENT and therefore
+        // never valid to require: fabric-screen-handler-api-v1 (it is fabric-menu-api-v1) and
+        // fabric-resource-loader-v0 (it is v1). Five tools required exactly those two and were
+        // filtered out at runtime on every Minecraft version as a result.
+        Set<String> shipped =
+                Set.of(
+                        "fabric-api-base", "fabric-api-lookup-api-v1", "fabric-biome-api-v1",
+                        "fabric-block-api-v1", "fabric-block-getter-api-v2", "fabric-command-api-v2",
+                        "fabric-content-registries-v0", "fabric-convention-tags-v2",
+                        "fabric-crash-report-info-v1", "fabric-creative-tab-api-v1",
+                        "fabric-data-attachment-api-v1", "fabric-data-generation-api-v1",
+                        "fabric-debug-api-v1", "fabric-dimensions-v1", "fabric-entity-events-v1",
+                        "fabric-events-interaction-v0", "fabric-game-rule-api-v1",
+                        "fabric-gametest-api-v1", "fabric-item-api-v1", "fabric-key-mapping-api-v1",
+                        "fabric-lifecycle-events-v1", "fabric-loot-api-v3", "fabric-menu-api-v1",
+                        "fabric-message-api-v1", "fabric-model-loading-api-v1",
+                        "fabric-networking-api-v1", "fabric-object-builder-api-v1",
+                        "fabric-particles-v1", "fabric-permission-api-v1", "fabric-recipe-api-v1",
+                        "fabric-registry-sync-v0", "fabric-renderer-api-v1",
+                        "fabric-rendering-fluids-v1", "fabric-rendering-v1",
+                        "fabric-resource-conditions-api-v1", "fabric-resource-loader-v1",
+                        "fabric-screen-api-v1", "fabric-serialization-api-v1",
+                        "fabric-sound-api-v1", "fabric-tag-api-v1", "fabric-transfer-api-v1",
+                        "fabric-transitive-access-wideners-v1");
+
+        for (Class<? extends Tool> klass : ToolRegistration.ALL_TOOL_CLASSES) {
+            var meta =
+                    klass.getAnnotation(
+                            com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool.class);
+            if (meta == null) {
+                continue;
+            }
+            for (String module : meta.requiredFabricModules()) {
+                assertTrue(
+                        shipped.contains(module),
+                        klass.getSimpleName()
+                                + " ('"
+                                + meta.name()
+                                + "') requires Fabric module '"
+                                + module
+                                + "', which Fabric API does not ship. A required module that is not"
+                                + " installed causes the tool to be skipped at runtime, so this"
+                                + " would silently disable the tool on every Minecraft version.");
+            }
+        }
+    }
+
+    @Test
+    void blockFamilyVariantsIsInTheDefaultSurface() {
+        ToolCompatibilityFilter filter =
+                new ToolCompatibilityFilter(fullModuleEnv(), Config.defaults());
+        Set<String> survivors = new HashSet<>();
+        for (Class<? extends Tool> klass : ToolRegistration.ALL_TOOL_CLASSES) {
+            filter.evaluate(klass).ifPresent(d -> survivors.add(d.name()));
+        }
+        assertTrue(
+                survivors.contains("block_family_variants"),
+                "block_family_variants should be in the default surface");
+    }
 }

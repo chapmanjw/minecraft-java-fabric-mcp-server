@@ -23,6 +23,17 @@ the client inspection surface needed real porting rather than a version bump.
 - On 26.2 the current screen is read from `Minecraft.gui.screen()`. The accessor moved from the
   `Minecraft.screen` field onto `Gui`; it was not removed, and no mixin is needed. Targets at or
   below 26.1.x still read the field directly.
+- **`block_family_variants`** — given any block in a shape family, returns the family's base block
+  and every shape variant vanilla defines for it (stairs, slab, wall, fence, chiseled, cracked, cut,
+  polished, door, trapdoor, button, pressure plate, and the rest). Accepts the base block or any
+  variant, so it answers both "what shapes exist for this block" and "what family is this block part
+  of". The ABSENCE of a variant is the useful part: it is how a build plan discovers that a shape
+  does not exist in vanilla, before the build rather than during it.
+
+  Backed by `net.minecraft.data.BlockFamilies`. Despite the `data` package name this is not
+  datagen-only — it is present in the extracted dedicated-server jar on every supported target, and
+  the API is stable across all four, so there is no version gate. The default surface goes from 102
+  to 103 tools.
 
 ### Changed
 

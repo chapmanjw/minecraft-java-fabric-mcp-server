@@ -465,6 +465,67 @@ public final class RegistryAccessTools {
         }
     }
 
+    // ----- block families -------------------------------------------------
+
+    @McpTool(
+            name = "block_family_variants",
+            description =
+                    "Given any block that belongs to a shape family, returns the family's base block"
+                            + " and every shape variant vanilla defines for it (stairs, slab, wall,"
+                            + " fence, chiseled, cracked, cut, polished, door, trapdoor, button,"
+                            + " pressure_plate, and so on). Accepts either the base block"
+                            + " (minecraft:oak_planks) or any variant (minecraft:oak_stairs), so it"
+                            + " answers both 'what shapes exist for this block' and 'what family is"
+                            + " this block part of'. A variant that is ABSENT from the result does"
+                            + " not exist in vanilla — check here before planning a build that needs"
+                            + " a particular shape, rather than discovering the gap mid-build.",
+            readOnly = true)
+    public static final class BlockFamilyVariants extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required(
+                                "block",
+                                Schemas.string(
+                                        "Block registry id, base or variant (e.g."
+                                                + " minecraft:oak_planks or"
+                                                + " minecraft:mossy_cobblestone_stairs)"))
+                        .build();
+
+        public BlockFamilyVariants() {
+            super("block_family_variants");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            String block = reader(arguments).requireString("block");
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        var found = context.adapter().blockFamilyOf(block);
+                        ObjectNode out = context.mapper().createObjectNode();
+                        if (found.isEmpty()) {
+                            // Not an error: most blocks belong to no family. Say so explicitly so
+                            // the caller can distinguish "no family" from "bad block id".
+                            out.put("in_family", false);
+                            out.put("block", block);
+                            return ToolResult.ofToon(out);
+                        }
+                        var info = found.get();
+                        out.put("in_family", true);
+                        out.put("base", info.base());
+                        out.put("matched_variant", info.matchedVariant());
+                        ObjectNode variants = out.putObject("variants");
+                        info.variants().forEach(variants::put);
+                        return ToolResult.ofToon(out);
+                    });
+        }
+    }
+
     // ----- resource ------------------------------------------------------
 
     @McpTool(

@@ -665,4 +665,55 @@ final class RegistryOps {
         player.closeContainer();
         return true;
     }
+
+    // ----- block families -----------------------------------------------------
+
+    /**
+     * Resolves the shape family containing {@code blockId}, matching either the family's base block
+     * or any of its variants.
+     *
+     * <p>{@code net.minecraft.data.BlockFamilies} lives in the {@code data} package but is NOT
+     * datagen-only — it is present in the extracted dedicated-server jar on every supported target,
+     * verified with javap. The API is stable across 1.21.11 / 26.1.x / 26.2 (26.2 only adds a
+     * {@code shouldGenerateSmeltingRecipe()} accessor we do not call), so no Stonecutter gate is
+     * needed here.
+     */
+    Optional<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockFamilyInfo> blockFamilyOf(
+            String blockId) {
+        Identifier wanted = AdapterContext.parseIdentifier(blockId);
+        net.minecraft.world.level.block.Block target =
+                net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(wanted);
+        if (target == null) {
+            return Optional.empty();
+        }
+        return net.minecraft.data.BlockFamilies.getAllFamilies()
+                .filter(
+                        family ->
+                                family.getBaseBlock() == target
+                                        || family.getVariants().containsValue(target))
+                .findFirst()
+                .map(
+                        family -> {
+                            java.util.Map<String, String> variants = new java.util.LinkedHashMap<>();
+                            String matched =
+                                    family.getBaseBlock() == target ? "base" : "";
+                            for (var e : family.getVariants().entrySet()) {
+                                // Variant is an enum with no name accessor of its own; name() is
+                                // the inherited Enum method. Lowercased so callers see "stairs"
+                                // rather than "STAIRS".
+                                String name = e.getKey().name().toLowerCase(Locale.ROOT);
+                                variants.put(name, blockIdOf(e.getValue()));
+                                if (e.getValue() == target) {
+                                    matched = name;
+                                }
+                            }
+                            return new com.chapmanjw.minecraft.fabric.mcp.adapter.dto
+                                    .BlockFamilyInfo(
+                                    blockIdOf(family.getBaseBlock()), matched, variants);
+                        });
+    }
+
+    private static String blockIdOf(net.minecraft.world.level.block.Block block) {
+        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).toString();
+    }
 }

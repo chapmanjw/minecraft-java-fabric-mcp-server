@@ -906,6 +906,12 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     }
 
     @Override
+    public Optional<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockFamilyInfo> blockFamilyOf(
+            String blockId) {
+        return registryOps.blockFamilyOf(blockId);
+    }
+
+    @Override
     public List<String> tagListInRegistry(String registry) {
         return registryOps.tagListInRegistry(registry);
     }
