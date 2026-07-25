@@ -572,13 +572,3 @@ See [SECURITY.md](SECURITY.md). Use GitHub Security Advisories — don't open a 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=chapmanjw%2Fminecraft-java-fabric-mcp-server&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=chapmanjw/minecraft-java-fabric-mcp-server&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=chapmanjw/minecraft-java-fabric-mcp-server&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chapmanjw/minecraft-java-fabric-mcp-server&type=date&legend=top-left" />
- </picture>
-</a>
