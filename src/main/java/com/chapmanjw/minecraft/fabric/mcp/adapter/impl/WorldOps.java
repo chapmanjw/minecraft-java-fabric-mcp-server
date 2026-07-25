@@ -270,9 +270,18 @@ final class WorldOps {
         if (cosmetic) {
             ServerLevel level = ctx.requireLevel(dimensionId);
             // EntitySpawnReason has the same enum surface on 1.21.11 and 26.1.x.
+            // Minecraft 26.2 moved the EntityType.<NAME> constants to a new
+            // net.minecraft.world.entity.EntityTypes class; EntityType itself now declares
+            // none. The entity class and the create(...) signature are unchanged.
+            //? if mc_gte_26_2 {
+            /*net.minecraft.world.entity.LightningBolt bolt =
+                    net.minecraft.world.entity.EntityTypes.LIGHTNING_BOLT.create(
+                            level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            *///?} else {
             net.minecraft.world.entity.LightningBolt bolt =
                     net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(
                             level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            //?}
             if (bolt == null) {
                 throw new AdapterException("Failed to construct lightning bolt entity");
             }

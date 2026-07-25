@@ -94,6 +94,23 @@ run {
     }
     val mcGte26 = mcVersion.startsWith("26.") || mcVersion.startsWith("27.")
     constPut?.invoke(constants, "mc_gte_26", mcGte26)
+
+    // `mc_gte_26_2` -- true for Minecraft 26.2 and later. 26.2 made two source-breaking
+    // changes that 26.1.x does not have:
+    //   * the EntityType.<NAME> constants moved to a new net.minecraft.world.entity.EntityTypes
+    //     class (EntityType itself now declares none), and
+    //   * Team.getColor() returns Optional<TeamColor> instead of ChatFormatting, where
+    //     TeamColor is a new enum whose name accessor is getSerializedName().
+    //
+    // Compared on major/minor only, so 26.1.2 is correctly FALSE: its minor is 1, even
+    // though its patch is 2. A naive string compare would get this wrong.
+    val mcGte262 = run {
+        val parts = mcVersion.split(".")
+        val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        major > 26 || (major == 26 && minor >= 2)
+    }
+    constPut?.invoke(constants, "mc_gte_26_2", mcGte262)
 }
 
 // `base` is from the standard `java` plugin (applied by Loom transitively).
@@ -252,9 +269,20 @@ tasks.named<ProcessResources>("processResources") {
     inputs.property("fabric_loader_version", loaderVersion)
     inputs.property("fabric_api_version", fabricApiVersion)
 
-    // Pin the depends.minecraft constraint to the major.minor of the active subproject
-    // so a 1.21.11 build refuses to load on 1.20.x or 26.1.x.
-    val mcMajorMinor = mcVersion.substringBeforeLast('.')
+    // depends.minecraft is pinned to the EXACT Minecraft version this subproject was compiled
+    // against. A bare version string is an equality predicate in Fabric's version-predicate
+    // syntax, so each jar loads on that version and refuses every other one.
+    //
+    // Exact rather than a range because the targets are not source-compatible with each other:
+    // 26.2 emptied EntityType of its constants, changed Team.getColor() to return an Optional,
+    // and removed Minecraft.screen and getMainRenderTarget(). Any open-ended ">=" lets an older
+    // jar be accepted on a newer game and then fail at runtime on a missing symbol, which is a
+    // much worse experience than the loader refusing it up front with a clear message.
+    //
+    // Declared as a task input so a change to this derivation actually re-templates
+    // fabric.mod.json. Without it the task stays UP-TO-DATE (every other input is unchanged)
+    // and silently keeps emitting the previous constraint.
+    inputs.property("mc_constraint", mcVersion)
 
     filesMatching("fabric.mod.json") {
         expand(
@@ -268,7 +296,7 @@ tasks.named<ProcessResources>("processResources") {
                 "mod_sources" to modSources,
                 "mod_issues" to modIssues,
                 "mc_version" to mcVersion,
-                "mc_constraint" to ">=$mcMajorMinor",
+                "mc_constraint" to mcVersion,
                 "fabric_loader_version" to loaderVersion,
                 "fabric_api_version" to fabricApiVersion,
                 "java_version" to ">=$javaVersion"

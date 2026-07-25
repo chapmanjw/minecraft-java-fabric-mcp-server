@@ -91,9 +91,25 @@ public final class ClientAccessImpl implements ClientAccess {
             onClient(
                     () -> {
                         Minecraft mc = Minecraft.getInstance();
+                        //? if mc_gte_26_2 {
+                        /*// 26.2 moved the current-screen accessor from the Minecraft.screen field
+                        // to Gui.screen(), and renamed setScreen to setScreenAndShow.
+                        //
+                        // The null check is NOT an optimisation and must not be dropped:
+                        // Gui.setScreen(null) is far from a no-op when no screen is open. Its
+                        // bytecode throws IllegalStateException mid-disconnect, constructs a
+                        // TitleScreen when the level is gone, constructs a DeathScreen, and — on a
+                        // dying player with the death screen suppressed (immediate-respawn worlds)
+                        // — calls LocalPlayer.respawn(), which sends a respawn packet. view_capture
+                        // is declared readOnly, so it must never be able to do that.
+                        if (mc != null && mc.gui.screen() != null) {
+                            mc.setScreenAndShow(null);
+                        }
+                        *///?} else {
                         if (mc != null && mc.screen != null) {
                             mc.setScreen(null);
                         }
+                        //?}
                         return null;
                     });
             try {
@@ -121,7 +137,13 @@ public final class ClientAccessImpl implements ClientAccess {
                                 result.complete(null);
                                 return null;
                             }
+                            // 26.2 moved the main framebuffer accessor off Minecraft onto
+                            // GameRenderer. Same RenderTarget, same semantics.
+                            //? if mc_gte_26_2 {
+                            /*RenderTarget fb = mc.gameRenderer.mainRenderTarget();
+                            *///?} else {
                             RenderTarget fb = mc.getMainRenderTarget();
+                            //?}
                             if (fb == null) {
                                 result.complete(null);
                                 return null;
@@ -294,7 +316,14 @@ public final class ClientAccessImpl implements ClientAccess {
                 () -> {
                     Minecraft mc = Minecraft.getInstance();
                     ObjectNode o = mapper.createObjectNode();
+                    // 26.2 removed the Minecraft.screen field; the accessor moved to Gui.screen(),
+                    // reached through the public final Minecraft.gui. Older targets keep reading
+                    // the field directly, which is where it still lives there.
+                    //? if mc_gte_26_2 {
+                    /*Screen s = mc == null ? null : mc.gui.screen();
+                    *///?} else {
                     Screen s = mc == null ? null : mc.screen;
+                    //?}
                     o.put("screen_open", s != null);
                     if (s != null) {
                         o.put("screen_class", s.getClass().getSimpleName());

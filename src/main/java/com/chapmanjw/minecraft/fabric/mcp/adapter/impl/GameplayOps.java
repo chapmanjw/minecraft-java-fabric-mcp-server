@@ -153,11 +153,36 @@ final class GameplayOps {
                                         new TeamInfo(
                                                 team.getName(),
                                                 team.getDisplayName().getString(),
-                                                team.getColor() == null ? "" : team.getColor().getName(),
+                                                teamColorName(team),
                                                 team.isAllowFriendlyFire(),
                                                 team.canSeeFriendlyInvisibles(),
                                                 new ArrayList<>(team.getPlayers()))));
         return out;
+    }
+
+    /**
+     * Team colour name, isolated here because the accessor changed shape in Minecraft 26.2.
+     *
+     * <p>26.1.x and earlier return a {@code ChatFormatting} whose accessor is {@code getName()}.
+     * 26.2 returns {@code Optional<TeamColor>}, where {@code TeamColor} is a new enum whose
+     * accessor is {@code getSerializedName()}. For a team that HAS a colour both spell it the same
+     * way (for example {@code "red"}).
+     *
+     * <p>The two differ for a team with NO colour, and the difference is normalized here. On 26.1.x
+     * an uncoloured team's colour is {@code ChatFormatting.RESET}, not null, so {@code getName()}
+     * returns {@code "reset"}. On 26.2 the {@code Optional} is simply empty. Left alone that would
+     * make {@code scoreboard_list_teams} report {@code "reset"} on three targets and {@code ""} on
+     * the fourth for the same team. We emit {@code "reset"} everywhere, matching the long-standing
+     * behaviour that clients may already depend on.
+     */
+    private static String teamColorName(net.minecraft.world.scores.PlayerTeam team) {
+        //? if mc_gte_26_2 {
+        /*return team.getColor()
+                .map(net.minecraft.world.scores.TeamColor::getSerializedName)
+                .orElse("reset");
+        *///?} else {
+        return team.getColor() == null ? "reset" : team.getColor().getName();
+        //?}
     }
 
     boolean scoreboardAddTeam(String name, String displayName) {
