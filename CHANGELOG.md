@@ -46,6 +46,25 @@ the client inspection surface needed real porting rather than a version bump.
   so tool output is unchanged.
 - On 26.2, `view_capture` reads the framebuffer via `gameRenderer.mainRenderTarget()` and closes
   screens with `setScreenAndShow(null)`; both replaced members that 26.2 removed from `Minecraft`.
+- **The CurseForge Client/Server environment is now set by the publish workflow** instead of by hand
+  in the CurseForge file console after every release. mc-publish v3.3.1 (released 2026-07-14, its
+  first release in over three years) added an `environment` input; CurseForge began *requiring* an
+  environment on Java uploads from 2026-07-15, enforced on the upload API, which is what prompted it.
+
+  The release job now passes the platform-scoped `curseforge-environment: both`. Scoped deliberately:
+  the generic `environment` input would also reach Modrinth and send `client_and_server` ("required
+  on both sides"), which is a different claim from the `client_or_server` ("runs on either") this
+  project publishes. The Modrinth v3 PATCH step is unchanged and still decides that value.
+
+  This is not a revival of the `curseforge-game-versions: [mc, Client, Server]` approach that broke
+  publishing in 0.4.0. That input resolves strictly through the Minecraft game-version provider,
+  which dropped the non-version tags and emptied the game-version set; `curseforge-environment` is a
+  separate field resolved independently, so it cannot fail that way.
+
+  The action is also pinned to an exact release and to the project's current owner
+  (`Kira-NT/mc-publish@v3.3.1`). The previous floating `@v3.3` had already moved to v3.3.1 — v3,
+  v3.3 and v3.3.1 all point at one commit — which silently changed the action runtime from node16
+  to node24.
 
 ### Fixed
 

@@ -150,7 +150,12 @@ jobs:
           path: release/
 
       - name: Publish MC ${{ matrix.mc }}
-        uses: Kir-Antipov/mc-publish@v3.3
+        # Pinned to an exact release, and to the project's current owner. The repo was renamed
+        # from Kir-Antipov to Kira-NT (the old path still 301s, but do not rely on that), and
+        # v3, v3.3 and v3.3.1 all point at the same commit — so the previous floating "@v3.3"
+        # silently moved to v3.3.1 and changed the action runtime from node16 to node24. Pin
+        # explicitly so that kind of jump is a deliberate edit rather than a surprise.
+        uses: Kira-NT/mc-publish@v3.3.1
         with:
           # Modrinth — permanent project id (survives slug renames; slug is fabric-api-mcp-server).
           modrinth-id: YCz65sD6
@@ -168,6 +173,21 @@ jobs:
           # (client/server side) is NOT part of the v2 upload mc-publish uses,
           # so it is patched in via the v3 API in the step below.
           game-versions: ${{ matrix.mc }}
+          # CurseForge environment (the Client / Server tags that used to be set by hand in the
+          # file console after every release). mc-publish v3.3.1 added this; CurseForge began
+          # REQUIRING an environment on Java uploads from 2026-07-15, enforced on the upload API,
+          # which is what prompted that release.
+          #
+          # "both" is LoaderEnvironmentType.BOTH, which maps to [Client, Server]. Deliberately the
+          # PLATFORM-SCOPED input, not the generic `environment`: the generic one would also reach
+          # Modrinth and send client_and_server ("required on both sides"), which is NOT the
+          # client_or_server ("runs on either") the step below sets. Scoping it leaves the Modrinth
+          # path alone.
+          #
+          # This does NOT revive the curseforge-game-versions approach warned about below. It is a
+          # separate field, resolved independently of the Minecraft game-version provider, so it
+          # cannot empty the game-version set the way that did.
+          curseforge-environment: both
           dependencies: |
             fabric-api(required)
           retry-attempts: 2
@@ -182,15 +202,25 @@ jobs:
       # set environment, then read it back to confirm it stuck.
       #
       # "client_or_server" = "Works the same on either side" (legacy: client
-      # Optional / server Optional). NOTE: the CurseForge Client/Server
-      # environment is set MANUALLY in the CurseForge file console per release.
-      # Do NOT re-add curseforge-game-versions: [mc, Client, Server]: mc-publish
-      # v3.3 resolves curseforge-game-versions strictly as Minecraft versions
-      # (through its game-version provider), so non-MC tags like Client/Server
-      # are dropped -- which returned an EMPTY game-version set and aborted the
-      # whole publish (the v0.4.0 regression). CurseForge has no post-upload API
-      # to edit a file's game versions, so automating it would require a
-      # dedicated upload step passing numeric ids [mcId, fabricId, 9638, 9639].
+      # Optional / server Optional).
+      #
+      # KEEP THIS STEP even though mc-publish v3.3.1 now sends an environment to
+      # Modrinth too. It still publishes over the Modrinth v2 API, and its enum
+      # maps a both-sides mod to client_and_server ("required on both sides"),
+      # which is not the same claim as client_or_server ("runs on either"). This
+      # PATCH runs after the upload and wins, so it remains the thing that
+      # decides the published value.
+      #
+      # The CurseForge side is no longer manual -- see curseforge-environment on
+      # the publish step above. Do NOT, however, re-add
+      # curseforge-game-versions: [mc, Client, Server]: mc-publish resolves that
+      # input strictly as Minecraft versions (through its game-version provider),
+      # so non-MC tags like Client/Server are dropped -- which returned an EMPTY
+      # game-version set and aborted the whole publish (the v0.4.0 regression).
+      # curseforge-environment is a different field resolved independently of
+      # that provider, which is why it is safe where the other was not.
+      # CurseForge still has no post-upload API to edit a file's game versions;
+      # the environment has to be right at upload time.
       #
       # Skips cleanly when MODRINTH_TOKEN is unset (matches mc-publish's own
       # behaviour), so it is safe to keep before the token is provisioned.
