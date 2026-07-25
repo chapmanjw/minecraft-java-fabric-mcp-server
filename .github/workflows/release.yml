@@ -141,7 +141,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mc: ["1.21.11", "26.1.1", "26.1.2"]
+        mc: ["1.21.11", "26.1.1", "26.1.2", "26.2"]
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v8

@@ -31,6 +31,8 @@ jobs:
             jdk: 25
           - minecraft: "26.1.2"
             jdk: 25
+          - minecraft: "26.2"
+            jdk: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7

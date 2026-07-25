@@ -50,8 +50,11 @@ plugins {
 
 stonecutter {
     create(rootProject) {
-        versions("1.21.11", "26.1.1", "26.1.2")
+        versions("1.21.11", "26.1.1", "26.1.2", "26.2")
 
+        // The version whose resolved source state is what lives in git. Kept at 26.1.2
+        // rather than moved to 26.2: both resolve mc_gte_26 = true, so the committed
+        // source is byte-identical either way, and 26.1.2 is the primary test target.
         vcsVersion = "26.1.2"
 
         // Each version subproject has its OWN build.gradle.kts (under versions/<ver>/).

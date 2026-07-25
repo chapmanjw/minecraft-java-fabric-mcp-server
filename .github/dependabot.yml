@@ -8,11 +8,14 @@ updates:
     # Spotless/Loom/Checkstyle pins there unwatched. List each build root explicitly.
     # Paths are enumerated rather than globbed because glob support under `directories`
     # is not documented for the gradle ecosystem.
+    # NOTE: adding a new Minecraft target means adding its directory here too, or the
+    # plugin pins in versions/<ver>/build.gradle.kts go unwatched.
     directories:
       - "/"
       - "/versions/1.21.11"
       - "/versions/26.1.1"
       - "/versions/26.1.2"
+      - "/versions/26.2"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
