@@ -18,9 +18,17 @@
 
 [versions]
 # Shaded into the mod jar via Loom's `include` (Jar-in-Jar) -- we ship this to every user,
-# so treat its advisories as first-party. Keep on the 2.18.x LTS line (patched through end
-# of 2026); 2.19 and 2.20 are closed branches. 2.21.x is the next LTS migration target.
-jackson = "2.18.9"
+# so treat its advisories as first-party. On the 2.21.x LTS line; 2.19 and 2.20 are closed
+# branches and 2.18 closes at the end of 2026.
+#
+# NOTE: jackson-annotations is deliberately a SEPARATE version ref. From 2.20 onward that
+# artifact dropped the patch component: Maven Central publishes jackson-annotations 2.21,
+# while jackson-core and jackson-databind publish 2.21.5. Binding all three to one ref makes
+# the build fail to resolve jackson-annotations:2.21.5. Verified against repo1: annotations
+# 2.21 -> 200, annotations 2.21.5 -> 404, databind/core 2.21.5 -> 200. Bump the two refs
+# together and keep them on the same minor line.
+jackson = "2.21.5"
+jacksonAnnotations = "2.21"
 
 # Provided by Minecraft at runtime -- compileOnly, never bundled. Track what MC ships.
 slf4j = "2.0.9"
@@ -32,7 +40,7 @@ mockito = "5.11.0"
 [libraries]
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
-jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jacksonAnnotations" }
 
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 
