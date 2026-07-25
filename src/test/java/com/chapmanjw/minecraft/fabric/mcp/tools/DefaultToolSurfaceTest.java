@@ -52,8 +52,11 @@ class DefaultToolSurfaceTest {
                         Map.entry("fabric-networking-api-v1", "1.0.0"),
                         Map.entry("fabric-recipe-api-v1", "1.0.0"),
                         Map.entry("fabric-resource-conditions-api-v1", "1.0.0"),
-                        Map.entry("fabric-resource-loader-v0", "1.0.0"),
-                        Map.entry("fabric-screen-handler-api-v1", "1.0.0"),
+                        // Every entry here must be a module Fabric API actually ships. This map
+                        // previously listed fabric-resource-loader-v0 and
+                        // fabric-screen-handler-api-v1, neither of which exists (they are v1 and
+                        // fabric-menu-api-v1 respectively), which masked five tools that declared
+                        // them and were therefore filtered out at runtime on every version.
                         Map.entry("fabric-transfer-api-v1", "1.0.0"));
         return new McEnvironment("26.1.2", "0.16.10", modules);
     }

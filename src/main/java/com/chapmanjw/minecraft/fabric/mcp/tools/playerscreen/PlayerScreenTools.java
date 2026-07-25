@@ -34,8 +34,7 @@ public final class PlayerScreenTools {
                             + "anvil, crafting_table, enchanting_table, loom, stonecutter, "
                             + "grindstone, smithing_table, cartography_table. Use the short "
                             + "name, not the registry id (e.g. crafting_table, NOT "
-                            + "minecraft:crafting).",
-            requiredFabricModules = {"fabric-screen-handler-api-v1"})
+                            + "minecraft:crafting).")
     public static final class OpenMenu extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -83,8 +82,7 @@ public final class PlayerScreenTools {
     @McpTool(
             name = "player_screen_open_container",
             description =
-                    "Opens the block container at the given position for the player (chest, barrel, etc.).",
-            requiredFabricModules = {"fabric-screen-handler-api-v1"})
+                    "Opens the block container at the given position for the player (chest, barrel, etc.).")
     public static final class OpenContainer extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
@@ -127,8 +125,7 @@ public final class PlayerScreenTools {
 
     @McpTool(
             name = "player_screen_close",
-            description = "Closes whatever screen the player currently has open.",
-            requiredFabricModules = {"fabric-screen-handler-api-v1"})
+            description = "Closes whatever screen the player currently has open.")
     public static final class Close extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object().required("uuid", Schemas.string("Player UUID")).build();

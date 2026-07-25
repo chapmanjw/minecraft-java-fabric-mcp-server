@@ -469,8 +469,7 @@ public final class RegistryAccessTools {
 
     @McpTool(
             name = "resource_loader_list_namespaces",
-            description = "Lists every namespace registered with the resource manager.",
-            requiredFabricModules = {"fabric-resource-loader-v0"})
+            description = "Lists every namespace registered with the resource manager.")
     public static final class ResourceListNs extends BaseTool {
         private static final JsonNode SCHEMA = Schemas.object().description("No arguments.").build();
 
@@ -500,8 +499,7 @@ public final class RegistryAccessTools {
             name = "resource_loader_get_resource",
             description =
                     "Reads a resource by location and returns its bytes as base64. Useful for inspecting"
-                            + " loaded datapacks and resource packs.",
-            requiredFabricModules = {"fabric-resource-loader-v0"})
+                            + " loaded datapacks and resource packs.")
     public static final class ResourceGet extends BaseTool {
         private static final JsonNode SCHEMA =
                 Schemas.object()
