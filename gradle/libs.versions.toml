@@ -1,0 +1,45 @@
+# Gradle version catalog -- the single source of truth for library versions.
+#
+# Why this file exists rather than plain gradle.properties keys:
+# the dependencies below are declared in `mod-build.gradle.kts`, which is applied via
+# `apply(from = ...)`. Dependabot parses build files statically and only recognises the
+# conventional names (`build.gradle(.kts)`, `settings.gradle(.kts)`), so it never opened
+# that script -- and a version held behind `property("deps.jackson")` was invisible to it.
+# The practical effect was that Jackson silently drifted while a security advisory was the
+# only thing that surfaced it, and no automated fix PR could be raised because Dependabot
+# had no editable version reference to change.
+#
+# A version catalog IS a manifest Dependabot reads and edits directly, so everything listed
+# here now gets both routine version-update PRs and automated security-fix PRs.
+#
+# Plugin versions (Loom, Spotless, Checkstyle) are intentionally NOT here: they live in the
+# `plugins { }` blocks of versions/<ver>/build.gradle.kts, which Dependabot reads directly
+# now that .github/dependabot.yml lists those directories as build roots.
+
+[versions]
+# Shaded into the mod jar via Loom's `include` (Jar-in-Jar) -- we ship this to every user,
+# so treat its advisories as first-party. Keep on the 2.18.x LTS line (patched through end
+# of 2026); 2.19 and 2.20 are closed branches. 2.21.x is the next LTS migration target.
+jackson = "2.18.9"
+
+# Provided by Minecraft at runtime -- compileOnly, never bundled. Track what MC ships.
+slf4j = "2.0.9"
+
+# Test-only.
+junit = "5.10.2"
+mockito = "5.11.0"
+
+[libraries]
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+
+# org.junit.platform:junit-platform-launcher is intentionally absent: it is declared without a
+# version in mod-build.gradle.kts and resolved by the junit-jupiter BOM, so there is no version
+# here for Dependabot to track.

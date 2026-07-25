@@ -54,9 +54,22 @@ val mcVersion = property("deps.minecraft") as String
 val loaderVersion = property("deps.fabric_loader") as String
 val fabricApiVersion = property("deps.fabric_api") as String
 val mappingsType = property("deps.mappings_type") as String
-val jacksonVersion = property("deps.jackson") as String
 // MCP wire-protocol version we implement. Update when adopting a newer revision.
 val mcpProtocolVersion = "2025-06-18"
+
+// Library versions come from the `libs` version catalog (gradle/libs.versions.toml), which
+// Dependabot reads and edits directly. We resolve it through the VersionCatalogsExtension
+// rather than the generated `libs.*` accessors: this is an apply-from script, and those
+// accessors are only synthesised for real build scripts (the same limitation described in
+// the header note about plugin accessors).
+val libs = extensions
+    .getByType(org.gradle.api.artifacts.VersionCatalogsExtension::class.java)
+    .named("libs")
+
+fun catalogLib(alias: String): String =
+    libs.findLibrary(alias).orElseThrow {
+        GradleException("Version catalog 'libs' has no library alias '$alias'")
+    }.get().toString()
 
 // version of the form 0.1.0+1.21.11 — keeps every emitted jar uniquely versioned
 // per Minecraft target so they coexist in a single GitHub Release.
@@ -161,23 +174,25 @@ dependencies {
 
     // Jackson — pinned and shaded into the mod jar so we don't share a version with
     // any other mod's bundled Jackson. The `include` configuration is provided by Loom
-    // under both plugin IDs.
+    // under both plugin IDs. Versions come from gradle/libs.versions.toml.
     listOf(
-        "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
-        "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
-        "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion"
+        catalogLib("jackson-databind"),
+        catalogLib("jackson-core"),
+        catalogLib("jackson-annotations")
     ).forEach { gav ->
         add("implementation", gav)
         add("include", gav)
     }
 
     // SLF4J is provided by Minecraft — compileOnly to keep it off the runtime classpath.
-    add("compileOnly", "org.slf4j:slf4j-api:${property("deps.slf4j") as String}")
+    add("compileOnly", catalogLib("slf4j-api"))
 
     // Testing
-    add("testImplementation", "org.junit.jupiter:junit-jupiter:5.10.2")
-    add("testImplementation", "org.mockito:mockito-core:5.11.0")
-    add("testImplementation", "org.mockito:mockito-junit-jupiter:5.11.0")
+    add("testImplementation", catalogLib("junit-jupiter"))
+    add("testImplementation", catalogLib("mockito-core"))
+    add("testImplementation", catalogLib("mockito-junit-jupiter"))
+    // Deliberately not from the catalog: its version is resolved by the junit-jupiter BOM,
+    // and a version-less catalog entry stringifies to a trailing-colon coordinate.
     add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
 }
 
