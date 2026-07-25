@@ -95,6 +95,29 @@ At build time, the active subproject's version determines which branch is uncomm
 checked-in source has the latest-targeted branch active (matching `vcsVersion = "26.1.2"` in
 `settings.gradle.kts`), so most developers can read the codebase as if it were always 26.1.
 
+## Runtime data differences (what compiling cannot catch)
+
+A Minecraft version can rename or remove **data** — tag ids, game-rule ids, registry keys, block
+states — with no source change at all. Every target compiles, every test passes, and the tools
+simply return different values. Adding a target therefore needs a data pass as well as a build.
+
+Known differences on the current matrix:
+
+| Data | 1.21.11 / 26.1.x | 26.2 |
+| --- | --- | --- |
+| block tag `minecraft:concrete_powder` | present | **renamed** to `minecraft:concrete_powders` |
+| block tag `minecraft:concrete` | absent | **added** |
+| game-rule ids | snake_case since 26.1 (`spawn_mobs`, `random_tick_speed`) — the old camelCase ids were removed outright | unchanged |
+
+The mod hardcodes no tag or game-rule ids: `tag_*` and `level_*_game_rule` pass through whatever the
+running game defines. So these are not mod bugs, and there is nothing to gate. They matter to
+*callers*, which must not assume an id seen on one version exists on another.
+
+When adding a Minecraft target, check at minimum: block/item tag ids the build workflows reference,
+game-rule ids, registry key names in `Registries` / `BuiltInRegistries`, and command syntax used by
+anything routed through `command_execute`. Diff the extracted server jar's `data/minecraft/tags/`
+tree between the old and new target — that is how the concrete-powder rename above was found.
+
 ## Tool surface differences across versions
 
 The complete cross-version matrix lives in [docs/tools.md](tools.md). High-level summary:
@@ -163,8 +186,21 @@ The output jar lands at `versions/1.21.11/build/libs/`.
 
 The intended workflow:
 
-1. Add a new entry to `settings.gradle.kts`: `vers("X.Y.Z", "X.Y.Z")`.
-2. Create `versions/X.Y.Z/gradle.properties` with the matching Fabric API + Loader coordinates.
-3. Run `./gradlew chiseledBuild` and fix any Stonecutter-block divergences.
-4. Update the build matrix in `.github/workflows/build.yml`.
-5. Update this document.
+1. Add the version to `settings.gradle.kts` and create `versions/X.Y.Z/build.gradle.kts` +
+   `gradle.properties` with the matching Fabric API + Loader coordinates. Copy the nearest existing
+   per-version build script — the Loom plugin id depends on whether the target is obfuscated.
+2. Add the directory to the `directories` list in `.github/dependabot.yml`. A version directory
+   Dependabot is not pointed at goes unwatched, and its plugin pins drift silently.
+3. Add the version to the matrices in `.github/workflows/build.yml` AND
+   `.github/workflows/release.yml`.
+4. Run `./gradlew chiseledBuild` and fix any Stonecutter-block divergences. Add a new constant only
+   when an existing one cannot express the split; compare major/minor numerically rather than by
+   string (see `mc_gte_26_2`).
+5. **Do the runtime-data pass.** The build passing proves only source compatibility. Diff the
+   extracted server jar's `data/minecraft/tags/` tree against the previous target, and check
+   game-rule ids and registry key names. See "Runtime data differences" above — a tag rename or a
+   game-rule rename changes what tools return with nothing to compile against.
+6. **Check the client surface separately.** `src/client/` is a different source set; a target can
+   build while the client module does not. Verify `view_capture` and every `sense_*` tool.
+7. Update this document, the README version tables, `docs/fabric-api-modules.md`, and the setup
+   guides.
