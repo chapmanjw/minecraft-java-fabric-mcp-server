@@ -353,10 +353,28 @@ final class RegistryOps {
         if (entry == null) {
             return FlammableBlockInfo.notFlammable();
         }
+        // FlammableBlockInfo is (flammable, spreadChance, burnChance) -- spread FIRST.
+        //
+        // On 26+ the Entry accessors mean what they say: getIgniteOdds() is the odds this block
+        // encourages fire in its neighbours (spread), getBurnOdds() the odds it burns away.
+        //
+        // On <=1.21.x Fabric's older Entry is the trap: its accessors are named the opposite way
+        // round from vanilla's meaning. Vanilla registers oak_planks as
+        // setFlammable(OAK_PLANKS, igniteOdds=5, burnOdds=20), yet on that Entry
+        // getSpreadChance() returns 20 and getBurnChance() returns 5 -- Fabric populates its
+        // burnChance field from vanilla's igniteOdds and its spreadChance field from vanilla's
+        // burnOdds. Reading them by name therefore reported every block's fire odds transposed
+        // (oak_planks came back spread=20/burn=5, TNT spread=100/burn=15, both exactly inverted).
+        // So the older branch must cross the accessors over to recover vanilla's meaning.
+        //
+        // The setter is deliberately NOT changed: it passes (spreadChance, burnChance) into an
+        // add(...) whose older overload takes burn first, and that inversion cancels against this
+        // one, so the odds actually written to vanilla -- and thus in-world fire behaviour -- are
+        // correct on every version. Only this read path was ever wrong.
         //? if mc_gte_26 {
         return new FlammableBlockInfo(true, entry.getIgniteOdds(), entry.getBurnOdds());
         //?} else {
-        /*return new FlammableBlockInfo(true, entry.getSpreadChance(), entry.getBurnChance());
+        /*return new FlammableBlockInfo(true, entry.getBurnChance(), entry.getSpreadChance());
         *///?}
     }
 

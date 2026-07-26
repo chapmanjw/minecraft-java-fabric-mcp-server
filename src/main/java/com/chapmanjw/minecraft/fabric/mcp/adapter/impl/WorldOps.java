@@ -154,7 +154,14 @@ final class WorldOps {
             throw new AdapterException(r.error());
         }
         //?} else {
-        /*level.setDayTime(timeOfDay);
+        /*// Day time is GLOBAL and owned by the overworld. Every other ServerLevel is backed by
+        // DerivedLevelData, whose setDayTime(long) disassembles to a bare return -- so calling it
+        // on the requested level silently did nothing for the nether and the end while this method
+        // still returned normally and the tool reported "Set time of <dim> to <n>". Verified live
+        // on 1.21.11: setting the nether to 1000 left the clock at 25251 and climbing.
+        // Set it on the overworld instead, which is exactly what /time set does on the 26+ branch.
+        // requireLevel above is still what validates the caller's dimension id.
+        ctx.requireServer().overworld().setDayTime(timeOfDay);
         *///?}
     }
 
@@ -182,7 +189,22 @@ final class WorldOps {
         //?} else {
         /*boolean raining = "rain".equalsIgnoreCase(weather) || "thunder".equalsIgnoreCase(weather);
         boolean thundering = "thunder".equalsIgnoreCase(weather);
-        level.setWeatherParameters(0, durationTicks, raining, thundering);
+        // Weather is GLOBAL and owned by the overworld -- the same DerivedLevelData trap as
+        // setDayTime. setRaining/setRainTime/setThundering/setThunderTime are all bare returns on
+        // a derived level, so this silently did nothing for the nether and the end while the tool
+        // still reported "Weather set to rain for N ticks". Verified live on 1.21.11: asking for
+        // rain in the nether left the overworld clear.
+        //
+        // setWeatherParameters(clearTime, weatherTime, raining, thundering) -- the duration goes
+        // in clearTime when clearing and in weatherTime otherwise. Hardcoding clearTime to 0 meant
+        // a "clear" request set no clear lock at all, leaving the next weather tick free to roll
+        // straight back to rain; vanilla's WeatherCommand.setClear passes the duration there.
+        ServerLevel clockOwner = ctx.requireServer().overworld();
+        if (raining) {
+            clockOwner.setWeatherParameters(0, durationTicks, true, thundering);
+        } else {
+            clockOwner.setWeatherParameters(durationTicks, 0, false, false);
+        }
         *///?}
     }
 
