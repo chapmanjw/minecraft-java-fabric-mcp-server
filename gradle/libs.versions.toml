@@ -28,7 +28,7 @@
 # 2.21 -> 200, annotations 2.21.5 -> 404, databind/core 2.21.5 -> 200. Bump the two refs
 # together and keep them on the same minor line.
 jackson = "2.21.5"
-jacksonAnnotations = "2.21"
+jacksonAnnotations = "2.22"
 
 # Provided by Minecraft at runtime -- compileOnly, never bundled. Track what MC ships.
 slf4j = "2.0.9"
