@@ -35,7 +35,7 @@ slf4j = "2.0.9"
 
 # Test-only.
 junit = "5.10.2"
-mockito = "5.11.0"
+mockito = "5.23.0"
 
 [libraries]
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
