@@ -111,6 +111,40 @@ public final class EventWiring {
         LOGGER.info("EventWiring installed — Minecraft events will be routed to the MCP event bus");
     }
 
+    /**
+     * The event types this class actually hooks.
+     *
+     * <p>{@link EventType} declares more constants than are wired up here. Subscribing to one of
+     * the unwired ones used to succeed and then silently never deliver, so this set lets
+     * events_subscribe reject it up front instead. Keep it in sync with install() -- if you wire a
+     * new event, add it here, and the subscribe path starts accepting it.
+     */
+    private static final java.util.EnumSet<EventType> WIRED =
+            java.util.EnumSet.of(
+                    EventType.SERVER_TICK,
+                    EventType.SERVER_STARTING,
+                    EventType.SERVER_STARTED,
+                    EventType.SERVER_STOPPING,
+                    EventType.SERVER_STOPPED,
+                    EventType.PLAYER_JOIN,
+                    EventType.PLAYER_LEAVE,
+                    EventType.PLAYER_CHAT,
+                    EventType.BLOCK_BREAK,
+                    EventType.BLOCK_USE);
+
+    /** True when this server actually emits the given event type. */
+    public static boolean isWired(EventType type) {
+        return WIRED.contains(type);
+    }
+
+    /** Comma-separated wire names of every deliverable event type, for error messages. */
+    public static String wiredWireNames() {
+        return WIRED.stream()
+                .map(EventType::wireName)
+                .sorted()
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
     private static void publishPlayerEvent(
             EventBus bus, ObjectMapper mapper, EventType type, ServerPlayer p) {
         if (p == null) {

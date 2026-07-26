@@ -42,6 +42,20 @@ public final class EventsTools {
                                             new McpException(
                                                     ErrorCodes.TOOL_INPUT_INVALID,
                                                     "Unknown event type: " + name));
+            // EventType declares more types than EventWiring actually hooks. Subscribing to an
+            // unhooked one used to succeed and then never deliver anything, so a caller polled a
+            // healthy-looking subscription forever with no way to tell it was inert. Refuse it up
+            // front and name what IS deliverable.
+            if (!EventWiring.isWired(type)) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "Event type '"
+                                + name
+                                + "' is declared but not currently emitted by this server, so a"
+                                + " subscription to it would never deliver anything. Deliverable"
+                                + " types are: "
+                                + EventWiring.wiredWireNames());
+            }
             set.add(type);
         }
         return set;
