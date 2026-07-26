@@ -476,11 +476,30 @@ final class GameplayOps {
         if (holder == null) {
             return Optional.empty();
         }
-        var encoded =
-                net.minecraft.advancements.Advancement.CODEC
-                        .encodeStart(com.mojang.serialization.JsonOps.INSTANCE, holder.value())
-                        .resultOrPartial(err -> { });
-        return encoded.map(Object::toString);
+        // Encode through a REGISTRY-AWARE ops. Advancement.CODEC has to resolve the registry
+        // entries an advancement references -- items in its rewards and display icon, entity
+        // types and blocks in its criteria -- which bare JsonOps cannot do, so encodeStart
+        // returned an error for essentially every real advancement. resultOrPartial then
+        // discarded that error, the empty Optional propagated, and the tool reported
+        // "Unknown advancement" for ids that advancement_list_all had just handed out and that
+        // advancement_grant accepts. Confirmed live on 1.21.11 with adventure/arbalistic.
+        var result =
+                net.minecraft.advancements.Advancement.CODEC.encodeStart(
+                        ctx.requireServer()
+                                .registryAccess()
+                                .createSerializationContext(
+                                        com.mojang.serialization.JsonOps.INSTANCE),
+                        holder.value());
+        // Distinguish a real encode failure from "no such advancement" instead of collapsing
+        // both into an empty Optional.
+        if (result.error().isPresent()) {
+            throw new AdapterException(
+                    "Advancement "
+                            + advancementId
+                            + " exists but could not be encoded: "
+                            + result.error().get().message());
+        }
+        return result.result().map(Object::toString);
     }
 
     // =====================================================================
