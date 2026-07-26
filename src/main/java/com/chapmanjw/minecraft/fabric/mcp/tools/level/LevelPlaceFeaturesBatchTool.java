@@ -93,13 +93,38 @@ public final class LevelPlaceFeaturesBatchTool extends BaseTool {
         // Pre-build the command strings on the HTTP thread (no world access here).
         record Placement(String feature, int x, int y, int z) {}
         java.util.List<Placement> placements = new java.util.ArrayList<>(features.size());
+        int index = 0;
         for (JsonNode f : features) {
+            // Validate each entry rather than dereferencing straight from get(). The declared
+            // schema is not enforced per array element, so an entry shaped even slightly
+            // differently -- {feature, position:{x,y,z}} instead of {feature, x, y, z} is the
+            // easy mistake -- made get("x") return null and the .asInt() blew up as an
+            // unhandled NullPointerException reported to the caller as "Internal server error",
+            // which says nothing about which entry was wrong or why.
+            if (f == null || !f.isObject()) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "level_place_features_batch: features[" + index + "] must be an object");
+            }
+            for (String key : new String[] {"feature", "x", "y", "z"}) {
+                if (!f.hasNonNull(key)) {
+                    throw new McpException(
+                            ErrorCodes.TOOL_INPUT_INVALID,
+                            "level_place_features_batch: features["
+                                    + index
+                                    + "] is missing '"
+                                    + key
+                                    + "'. Each entry is {feature, x, y, z} with flat integer"
+                                    + " coordinates -- not a nested position object.");
+                }
+            }
             placements.add(
                     new Placement(
                             f.get("feature").asText(),
                             f.get("x").asInt(),
                             f.get("y").asInt(),
                             f.get("z").asInt()));
+            index++;
         }
 
         return onMainThread(
