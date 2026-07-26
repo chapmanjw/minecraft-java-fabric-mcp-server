@@ -851,6 +851,20 @@ final class WorldOps {
                                             record.isOccupied(),
                                             record.getFreeTickets()));
                         });
+        // PoiManager.getInRange streams out of its internal per-chunk storage, whose iteration
+        // order is not stable: two identical queries against an unchanged world returned the same
+        // two POIs in opposite orders (home,cartographer then cartographer,home), observed live on
+        // 26.1.1. A caller diffing successive queries would read that as the village changing when
+        // nothing had. Sort on position, then type, so the result is reproducible. Same reasoning
+        // as the block-family variant ordering.
+        out.sort(
+                java.util.Comparator
+                        .<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo>comparingInt(
+                                p -> p.pos().x())
+                        .thenComparingInt(p -> p.pos().y())
+                        .thenComparingInt(p -> p.pos().z())
+                        .thenComparing(
+                                com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo::type));
         return out;
     }
 }
