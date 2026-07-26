@@ -554,6 +554,22 @@ final class RegistryOps {
     // Player Screen Handlers (Fabric — uses vanilla menu providers underneath)
     // =====================================================================
 
+    /**
+     * Opens a standard menu screen for a player, anywhere.
+     *
+     * <p>The menus are built on {@link net.minecraft.world.inventory.ContainerLevelAccess#NULL}
+     * rather than an access pointing at the player's own block position. Every one of these menus
+     * validates itself each tick with {@code stillValid(access, player, <block>)}, which checks that
+     * the access position actually holds the matching block — so with a position-based access the
+     * menu opened and the server closed it again on the very next tick unless the player happened to
+     * be standing inside, say, a grindstone. {@code openMenu(...)} still returned a container id, so
+     * the tool reported success while nothing appeared on the client.
+     *
+     * <p>Confirmed live: with a grindstone placed at the player's exact block position the menu
+     * stayed open; one block away it did not. {@code NULL} makes {@code stillValid} return true
+     * unconditionally, which is the correct semantic for "open this menu for this player" — there is
+     * no real block backing it.
+     */
     boolean playerScreenOpenMenu(UUID uuid, String menuType, String title) {
         ServerPlayer player = ctx.requireServer().getPlayerList().getPlayer(uuid);
         if (player == null) {
@@ -572,7 +588,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "crafting_table" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -581,7 +597,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "enchanting_table" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -590,7 +606,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "loom" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -599,7 +615,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "stonecutter" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -608,7 +624,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "grindstone" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -617,7 +633,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "smithing_table" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -626,7 +642,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     case "cartography_table" ->
                             new net.minecraft.world.SimpleMenuProvider(
@@ -635,7 +651,7 @@ final class RegistryOps {
                                                     id,
                                                     inv,
                                                     net.minecraft.world.inventory.ContainerLevelAccess
-                                                            .create(player.level(), player.blockPosition())),
+                                                            .NULL),
                                     name);
                     default ->
                             throw new AdapterException("Unknown menu type: " + menuType);
