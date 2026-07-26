@@ -188,9 +188,13 @@ final class WorldOps {
                 "thunder".equalsIgnoreCase(weather)
                         ? "thunder"
                         : ("rain".equalsIgnoreCase(weather) ? "rain" : "clear");
-        final int ticksPerSecond = 20;
-        int durationSeconds = Math.max(0, durationTicks / ticksPerSecond);
-        String suffix = durationSeconds > 0 ? " " + durationSeconds : "";
+        // /weather takes a Brigadier TimeArgument, and a BARE number there is a count of
+        // TICKS -- only a "300s" style suffix means seconds. This used to divide the requested
+        // ticks by 20 and pass the result bare, so every duration came out 20x too short:
+        // asking for 6000 ticks of rain produced 300 ticks and the weather cleared in fifteen
+        // seconds. Verified live on 26.1.1 -- "weather rain 300" left rainTime at ~215 while
+        // "weather rain 6000" left it at 5908. Pass the ticks straight through.
+        String suffix = durationTicks > 0 ? " " + durationTicks : "";
         CommandResult r = ctx.commandExecute("weather " + w + suffix);
         if (r.successCount() == 0 && r.error() != null) {
             throw new AdapterException(r.error());
