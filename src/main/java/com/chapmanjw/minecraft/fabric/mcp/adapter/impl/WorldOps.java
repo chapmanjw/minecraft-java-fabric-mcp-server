@@ -476,23 +476,25 @@ final class WorldOps {
      */
     private static BiomeInfo describeBiome(
             Identifier id, net.minecraft.world.level.biome.Biome biome, BlockPos at, int seaLevel) {
-        String precipitation = null;
-        Integer grassColor = null;
-        if (at != null) {
-            precipitation = biome.getPrecipitationAt(at, seaLevel).getSerializedName();
-            grassColor = biome.getGrassColor(at.getX(), at.getZ());
-        }
+        // Only precipitation is position-dependent among the things a server can answer:
+        // temperature falls off with altitude, so one biome snows on a peak and rains below.
+        String precipitation =
+                at == null ? null : biome.getPrecipitationAt(at, seaLevel).getSerializedName();
         var effects = biome.getSpecialEffects();
+        // Deliberately NOT calling getGrassColor / getFoliageColor / getDryFoliageColor: those
+        // sample the client's grass.png and foliage.png colourmaps, which a dedicated server does
+        // not load, so they return 0x000000 for every biome here. Report the explicit overrides,
+        // which are real data, and leave them null for biomes that sample the gradient instead.
         return new BiomeInfo(
                 id == null ? "unknown" : id.toString(),
                 biome.getBaseTemperature(),
                 biome.climateSettings.downfall(),
                 biome.hasPrecipitation(),
                 precipitation,
-                grassColor,
-                biome.getFoliageColor(),
-                biome.getDryFoliageColor(),
                 effects.waterColor(),
+                effects.grassColorOverride().orElse(null),
+                effects.foliageColorOverride().orElse(null),
+                effects.dryFoliageColorOverride().orElse(null),
                 effects.grassColorModifier().getSerializedName());
     }
 

@@ -358,39 +358,42 @@ class DtoSmokeTest {
     void biomeInfoStoresAllFields() {
         var b =
                 new BiomeInfo(
-                        "minecraft:plains",
+                        "minecraft:swamp",
                         0.8f,
-                        0.4f,
+                        0.9f,
                         true,
                         "rain",
-                        0x91BD59,
-                        0x77AB2F,
-                        0x8EB971,
-                        0x3F76E4,
-                        "none");
-        assertEquals("minecraft:plains", b.id());
+                        0x617B64,
+                        0x6A7039,
+                        0x6A7039,
+                        null,
+                        "swamp");
+        assertEquals("minecraft:swamp", b.id());
         assertEquals(0.8f, b.temperature());
-        assertEquals(0.4f, b.downfall());
+        assertEquals(0.9f, b.downfall());
         assertTrue(b.hasPrecipitation());
         assertEquals("rain", b.precipitation());
-        assertEquals(0x91BD59, b.grassColor());
-        assertEquals("none", b.grassColorModifier());
+        assertEquals("swamp", b.grassColorModifier());
+        assertEquals(0x6A7039, b.grassColorOverride());
+        // A biome can override some colours and not others.
+        assertNull(b.dryFoliageColorOverride());
         // Packed ints render as #RRGGBB, zero-padded, with any alpha byte masked off.
-        assertEquals("#77AB2F", BiomeInfo.hex(b.foliageColor()));
-        assertEquals("#3F76E4", BiomeInfo.hex(b.waterColor()));
+        assertEquals("#617B64", BiomeInfo.hex(b.waterColor()));
         assertEquals("#0000FF", BiomeInfo.hex(0xFF0000FF));
     }
 
     @Test
     void biomeInfoLeavesPositionDependentFieldsNullWhenUnresolved() {
-        // The dimension listing has no block to resolve against, so precipitation and grass
-        // colour have no single correct answer and must stay absent rather than be invented.
+        // The dimension listing has no block to resolve against, so precipitation has no single
+        // correct answer and must stay absent rather than be invented.
         var b =
                 new BiomeInfo(
-                        "minecraft:plains", 0.8f, 0.4f, true, null, null, 0x77AB2F, 0x8EB971,
-                        0x3F76E4, "none");
+                        "minecraft:plains", 0.8f, 0.4f, true, null, 0x3F76E4, null, null, null,
+                        "none");
         assertNull(b.precipitation());
-        assertNull(b.grassColor());
+        // Plains pins no colour overrides; it samples the gradient, which a server cannot do.
+        assertNull(b.grassColorOverride());
+        assertNull(b.foliageColorOverride());
     }
 
     @Test

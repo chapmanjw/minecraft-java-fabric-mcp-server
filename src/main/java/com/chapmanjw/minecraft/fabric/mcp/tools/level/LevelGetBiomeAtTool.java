@@ -66,12 +66,18 @@ public final class LevelGetBiomeAtTool extends BaseTool {
                     if (b.precipitation() != null) {
                         n.put("precipitation", b.precipitation());
                     }
-                    if (b.grassColor() != null) {
-                        n.put("grassColor", BiomeInfo.hex(b.grassColor()));
-                    }
-                    n.put("foliageColor", BiomeInfo.hex(b.foliageColor()));
-                    n.put("dryFoliageColor", BiomeInfo.hex(b.dryFoliageColor()));
                     n.put("waterColor", BiomeInfo.hex(b.waterColor()));
+                    // Overrides are absent for biomes that sample the colour gradient instead of pinning
+                    // a value; omit rather than emit a placeholder.
+                    if (b.grassColorOverride() != null) {
+                        n.put("grassColorOverride", BiomeInfo.hex(b.grassColorOverride()));
+                    }
+                    if (b.foliageColorOverride() != null) {
+                        n.put("foliageColorOverride", BiomeInfo.hex(b.foliageColorOverride()));
+                    }
+                    if (b.dryFoliageColorOverride() != null) {
+                        n.put("dryFoliageColorOverride", BiomeInfo.hex(b.dryFoliageColorOverride()));
+                    }
                     n.put("grassColorModifier", b.grassColorModifier());
                     return ToolResult.ofToon(n);
                 });
