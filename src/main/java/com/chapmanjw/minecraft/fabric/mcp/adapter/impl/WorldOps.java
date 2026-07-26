@@ -733,20 +733,38 @@ final class WorldOps {
                 lerpRemaining);
     }
 
+    /**
+     * Formats a double for a Brigadier command argument.
+     *
+     * <p>Plain string concatenation cannot be used here. {@code Double.toString} switches to
+     * scientific notation at 1e7 and below 1e-3, so a size of 59999968 was concatenated as
+     * "5.9999968E7" and the command parser rejected the whole command. The tool then reported
+     * "failed" with no indication why. That bound is not academic: the DEFAULT world border is
+     * 59999968, so every setter here could shrink a border and never restore it. Verified live on
+     * 1.21.11 -- 9999999 succeeded and 10000000 failed, exactly the notation threshold.
+     *
+     * <p>{@code toPlainString} never emits an exponent. stripTrailingZeros first keeps whole
+     * numbers looking whole ("1000" rather than "1000.0"); on its own it would produce "1E+3",
+     * which is why toPlainString is applied after it and not instead of it.
+     */
+    private static String cmdNum(double v) {
+        return java.math.BigDecimal.valueOf(v).stripTrailingZeros().toPlainString();
+    }
+
     boolean worldborderSetSize(String dimensionId, double size, int timeSeconds) {
         return runInDim(
                 dimensionId,
-                "worldborder set " + size + (timeSeconds > 0 ? " " + timeSeconds : ""));
+                "worldborder set " + cmdNum(size) + (timeSeconds > 0 ? " " + timeSeconds : ""));
     }
 
     boolean worldborderAddSize(String dimensionId, double delta, int timeSeconds) {
         return runInDim(
                 dimensionId,
-                "worldborder add " + delta + (timeSeconds > 0 ? " " + timeSeconds : ""));
+                "worldborder add " + cmdNum(delta) + (timeSeconds > 0 ? " " + timeSeconds : ""));
     }
 
     boolean worldborderSetCenter(String dimensionId, double x, double z) {
-        return runInDim(dimensionId, "worldborder center " + x + " " + z);
+        return runInDim(dimensionId, "worldborder center " + cmdNum(x) + " " + cmdNum(z));
     }
 
     boolean worldborderSetWarningBlocks(String dimensionId, int blocks) {
@@ -758,11 +776,11 @@ final class WorldOps {
     }
 
     boolean worldborderSetDamageAmount(String dimensionId, double amount) {
-        return runInDim(dimensionId, "worldborder damage amount " + amount);
+        return runInDim(dimensionId, "worldborder damage amount " + cmdNum(amount));
     }
 
     boolean worldborderSetDamageBuffer(String dimensionId, double buffer) {
-        return runInDim(dimensionId, "worldborder damage buffer " + buffer);
+        return runInDim(dimensionId, "worldborder damage buffer " + cmdNum(buffer));
     }
 
     private boolean runInDim(String dimensionId, String command) {

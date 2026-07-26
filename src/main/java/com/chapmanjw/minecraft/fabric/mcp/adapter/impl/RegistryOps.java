@@ -78,9 +78,31 @@ final class RegistryOps {
             if (table == LootTable.EMPTY) {
                 return Optional.empty();
             }
-            var result = LootTable.DIRECT_CODEC.encodeStart(
-                    com.mojang.serialization.JsonOps.INSTANCE, table);
+            // Encode through a REGISTRY-AWARE ops, not bare JsonOps. Any loot table that
+            // references a registry entry cannot be encoded without a registry lookup: ore tables
+            // carry apply_bonus holding a fortune enchantment, and chest tables reference items and
+            // enchantments. DIRECT_CODEC therefore returned an error for all of them and this
+            // method swallowed it into Optional.empty(), surfacing as "Definition not available"
+            // for tables that plainly exist and that loot_table_generate happily rolls. Only
+            // trivial tables -- a bare item entry plus survives_explosion, e.g.
+            // blocks/cobblestone -- happened to encode without registries, which is what made this
+            // look like it worked. `lookup` was already fetched here and never used.
+            var result =
+                    LootTable.DIRECT_CODEC.encodeStart(
+                            lookup.createSerializationContext(
+                                    com.mojang.serialization.JsonOps.INSTANCE),
+                            table);
+            // Report a genuine encode failure instead of pretending the table does not exist.
+            if (result.error().isPresent()) {
+                throw new AdapterException(
+                        "Loot table "
+                                + id
+                                + " exists but could not be encoded: "
+                                + result.error().get().message());
+            }
             return result.result().map(Object::toString);
+        } catch (AdapterException ae) {
+            throw ae;
         } catch (Exception e) {
             return Optional.empty();
         }
