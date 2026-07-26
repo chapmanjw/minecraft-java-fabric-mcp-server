@@ -742,4 +742,62 @@ final class WorldOps {
         return AdapterContext.commandOk(
                 ctx.commandExecute("execute in " + dimensionId + " run " + command));
     }
+
+    // ----- points of interest -------------------------------------------------
+
+    /**
+     * Queries the level's {@link net.minecraft.world.entity.ai.village.poi.PoiManager} directly.
+     *
+     * <p>Deliberately NOT built on net.minecraft.util.debug.DebugSubscriptions: that is a broadcast
+     * mechanism (broadcastToAll / hasAnySubscriberFor) which pushes packets to subscribed clients
+     * and exposes nothing queryable, so it would need a fake subscriber and would not work headless.
+     * PoiManager is a plain server-side query API, and getInRange is identical on every supported
+     * target, so this needs no version gate.
+     */
+    java.util.List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo> poiQuery(
+            String dimensionId, int x, int y, int z, int radius, String typeFilter) {
+        ServerLevel level = ctx.requireLevel(dimensionId);
+        net.minecraft.core.BlockPos centre = new net.minecraft.core.BlockPos(x, y, z);
+
+        java.util.function.Predicate<
+                        net.minecraft.core.Holder<
+                                net.minecraft.world.entity.ai.village.poi.PoiType>>
+                typePredicate;
+        if (typeFilter == null || typeFilter.isBlank()) {
+            typePredicate = holder -> true;
+        } else {
+            Identifier wanted = AdapterContext.parseIdentifier(typeFilter);
+            typePredicate =
+                    holder ->
+                            holder.unwrapKey()
+                                    .map(k -> k.identifier().equals(wanted))
+                                    .orElse(false);
+        }
+
+        java.util.List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo> out =
+                new java.util.ArrayList<>();
+        level.getPoiManager()
+                .getInRange(
+                        typePredicate,
+                        centre,
+                        radius,
+                        net.minecraft.world.entity.ai.village.poi.PoiManager.Occupancy.ANY)
+                .forEach(
+                        record -> {
+                            String type =
+                                    record.getPoiType()
+                                            .unwrapKey()
+                                            .map(k -> k.identifier().toString())
+                                            .orElse("unknown");
+                            net.minecraft.core.BlockPos p = record.getPos();
+                            out.add(
+                                    new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo(
+                                            type,
+                                            new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.Vec3i(
+                                                    p.getX(), p.getY(), p.getZ()),
+                                            record.isOccupied(),
+                                            record.getFreeTickets()));
+                        });
+        return out;
+    }
 }

@@ -33,7 +33,19 @@ the client inspection surface needed real porting rather than a version bump.
   Backed by `net.minecraft.data.BlockFamilies`. Despite the `data` package name this is not
   datagen-only — it is present in the extracted dedicated-server jar on every supported target, and
   the API is stable across all four, so there is no version gate. The default surface goes from 102
-  to 103 tools.
+  to 104 tools with this and `level_poi_query` below.
+- **`level_poi_query`** — lists the points of interest the server's village AI tracks near a
+  position, with each POI's type, block position, whether it is occupied, and how many claims
+  remain. Beds, workstations and bells are all POI records, so this reports what the *game* believes
+  about a build rather than what it looks like: a bed villagers cannot claim simply is not a home
+  POI, however convincing the room around it. It answers "is this village mechanically real" and
+  "which beds went unclaimed", neither of which was previously checkable.
+
+  Reads `ServerLevel.getPoiManager()` directly. Deliberately not built on
+  `net.minecraft.util.debug.DebugSubscriptions`, which despite appearances is a broadcast mechanism
+  (`broadcastToAll` / `hasAnySubscriberFor`) that pushes packets to subscribed clients and exposes
+  nothing queryable — it would have needed a fake subscriber and would not work headless.
+  `PoiManager.getInRange` is identical on every supported target, so there is no version gate.
 
 ### Changed
 

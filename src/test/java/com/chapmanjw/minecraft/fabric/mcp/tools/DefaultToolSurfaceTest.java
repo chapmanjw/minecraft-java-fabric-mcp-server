@@ -172,5 +172,8 @@ class DefaultToolSurfaceTest {
         assertTrue(
                 survivors.contains("block_family_variants"),
                 "block_family_variants should be in the default surface");
+        assertTrue(
+                survivors.contains("level_poi_query"),
+                "level_poi_query should be in the default surface");
     }
 }

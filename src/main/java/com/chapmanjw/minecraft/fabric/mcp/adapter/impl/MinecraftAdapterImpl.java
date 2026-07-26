@@ -923,6 +923,12 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     }
 
     @Override
+    public List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo> poiQuery(
+            String dimensionId, int x, int y, int z, int radius, String typeFilter) {
+        return worldOps.poiQuery(dimensionId, x, y, z, radius, typeFilter);
+    }
+
+    @Override
     public List<String> tagListInRegistry(String registry) {
         return registryOps.tagListInRegistry(registry);
     }

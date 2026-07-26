@@ -29,6 +29,7 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.itemmodify.ItemModifyTools;
 import com.chapmanjw.minecraft.fabric.mcp.tools.itemstack.ItemStackTools;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelCreateExplosionTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetBiomeAtTool;
+import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPoiQueryTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetDifficultyTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetDimensionInfoTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetGameRuleTool;
@@ -108,6 +109,7 @@ public final class ToolRegistration {
                     LevelSetGameRuleTool.class,
                     LevelListGameRulesTool.class,
                     LevelGetBiomeAtTool.class,
+                    LevelPoiQueryTool.class,
                     LevelListBiomesInDimensionTool.class,
                     LevelPlaceFeatureTool.class,
                     LevelPlaceFeaturesBatchTool.class,

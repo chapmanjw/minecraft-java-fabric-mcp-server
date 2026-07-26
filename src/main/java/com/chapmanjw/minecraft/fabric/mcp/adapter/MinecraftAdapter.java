@@ -656,6 +656,16 @@ public interface MinecraftAdapter {
     Optional<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockFamilyInfo> blockFamilyOf(
             String blockId);
 
+    /**
+     * Points of interest the server's village AI tracks within {@code radius} blocks of a position.
+     *
+     * <p>Beds, workstations and bells are POI records, so this reports what the game believes about
+     * a build rather than what it looks like. {@code typeFilter} is an optional POI type registry id
+     * (for example {@code minecraft:home}); empty or null returns every type.
+     */
+    List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo> poiQuery(
+            String dimensionId, int x, int y, int z, int radius, String typeFilter);
+
     // =====================================================================
     // Content Registry (Fabric)
     // =====================================================================
