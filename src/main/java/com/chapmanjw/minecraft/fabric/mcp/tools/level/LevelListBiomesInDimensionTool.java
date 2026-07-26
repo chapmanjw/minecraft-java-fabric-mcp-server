@@ -12,7 +12,14 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
 
 @McpTool(
         name = "level_list_biomes_in_dimension",
-        description = "Lists every biome registered for a dimension.",
+        description =
+                "Lists the biomes a dimension's generator can actually place — the nether"
+                        + " answers with its own handful, not the whole registry. Each entry"
+                        + " carries temperature, downfall, whether it has precipitation, its"
+                        + " water colour, any explicit grass/foliage colour overrides, and its"
+                        + " grass colour modifier. Sorted by id. Precipitation type and grass"
+                        + " colour are position-dependent and therefore only reported by"
+                        + " level_get_biome_at, not here.",
         requiredFabricModules = {"fabric-biome-api-v1"})
 public final class LevelListBiomesInDimensionTool extends BaseTool {
 

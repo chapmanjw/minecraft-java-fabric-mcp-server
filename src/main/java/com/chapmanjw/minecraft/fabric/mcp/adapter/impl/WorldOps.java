@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -500,14 +499,21 @@ final class WorldOps {
 
     List<BiomeInfo> levelListBiomesInDimension(String dimensionId) {
         ServerLevel level = ctx.requireLevel(dimensionId);
-        var biomeRegistry = level.registryAccess().lookupOrThrow(Registries.BIOME);
+        // Ask the dimension's own generator what it can produce, rather than listing the whole
+        // BIOME registry. The registry is shared across dimensions, so the old behaviour ignored
+        // the argument entirely: asking for the_nether returned all 66 biomes including plains,
+        // ocean and the_end. possibleBiomes() is the set the biome source can actually place, so
+        // the_nether now answers with its five and the_end with its own.
+        var possible =
+                level.getChunkSource().getGenerator().getBiomeSource().possibleBiomes();
         List<BiomeInfo> out = new ArrayList<>();
-        biomeRegistry.listElements()
-                .forEach(
-                        h ->
-                                out.add(
-                                        describeBiome(
-                                                h.key().identifier(), h.value(), null, 0)));
+        for (var holder : possible) {
+            Identifier id = holder.unwrapKey().map(ResourceKey::identifier).orElse(null);
+            out.add(describeBiome(id, holder.value(), null, 0));
+        }
+        // possibleBiomes() is a Set with no defined iteration order, so sort for reproducibility
+        // -- the same reason level_poi_query sorts. Unknown ids sort last rather than throwing.
+        out.sort(java.util.Comparator.comparing(BiomeInfo::id));
         return out;
     }
 
