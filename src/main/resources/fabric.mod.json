@@ -24,6 +24,7 @@
     ]
   },
   "mixins": [],
+  "accessWidener": "minecraft_fabric_mcp.accesswidener",
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
     "fabric-api": ">=${fabric_api_version}",

@@ -356,10 +356,41 @@ class DtoSmokeTest {
 
     @Test
     void biomeInfoStoresAllFields() {
-        var b = new BiomeInfo("minecraft:plains", 0.8f, 0.4f, true);
+        var b =
+                new BiomeInfo(
+                        "minecraft:plains",
+                        0.8f,
+                        0.4f,
+                        true,
+                        "rain",
+                        0x91BD59,
+                        0x77AB2F,
+                        0x8EB971,
+                        0x3F76E4,
+                        "none");
         assertEquals("minecraft:plains", b.id());
         assertEquals(0.8f, b.temperature());
+        assertEquals(0.4f, b.downfall());
         assertTrue(b.hasPrecipitation());
+        assertEquals("rain", b.precipitation());
+        assertEquals(0x91BD59, b.grassColor());
+        assertEquals("none", b.grassColorModifier());
+        // Packed ints render as #RRGGBB, zero-padded, with any alpha byte masked off.
+        assertEquals("#77AB2F", BiomeInfo.hex(b.foliageColor()));
+        assertEquals("#3F76E4", BiomeInfo.hex(b.waterColor()));
+        assertEquals("#0000FF", BiomeInfo.hex(0xFF0000FF));
+    }
+
+    @Test
+    void biomeInfoLeavesPositionDependentFieldsNullWhenUnresolved() {
+        // The dimension listing has no block to resolve against, so precipitation and grass
+        // colour have no single correct answer and must stay absent rather than be invented.
+        var b =
+                new BiomeInfo(
+                        "minecraft:plains", 0.8f, 0.4f, true, null, null, 0x77AB2F, 0x8EB971,
+                        0x3F76E4, "none");
+        assertNull(b.precipitation());
+        assertNull(b.grassColor());
     }
 
     @Test

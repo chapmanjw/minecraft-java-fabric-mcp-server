@@ -455,15 +455,45 @@ final class WorldOps {
             Identifier id =
                     biomeHolder.unwrapKey().map(ResourceKey::identifier).orElse(null);
             var biome = biomeHolder.value();
-            return Optional.of(
-                    new BiomeInfo(
-                            id == null ? "unknown" : id.toString(),
-                            biome.getBaseTemperature(),
-                            0.0f,
-                            biome.hasPrecipitation()));
+            BlockPos at = new BlockPos(position.x(), position.y(), position.z());
+            return Optional.of(describeBiome(id, biome, at, level.getSeaLevel()));
         } catch (AdapterException ae) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Builds a {@link BiomeInfo}, optionally resolved against a specific block.
+     *
+     * <p>With a position we can answer the questions that actually depend on where you are
+     * standing: what precipitation falls here (temperature drops with altitude, so one biome
+     * snows on a peak and rains in the valley) and what colour the grass takes (swamp and dark
+     * forest apply a modifier). Without one -- the dimension listing -- those two are left null
+     * rather than being invented from an arbitrary reference point.
+     *
+     * <p>downfall comes from the access-widened climateSettings record. It is NOT a weather
+     * value: vanilla reads it only as the second axis into the grass/foliage colour gradient.
+     */
+    private static BiomeInfo describeBiome(
+            Identifier id, net.minecraft.world.level.biome.Biome biome, BlockPos at, int seaLevel) {
+        String precipitation = null;
+        Integer grassColor = null;
+        if (at != null) {
+            precipitation = biome.getPrecipitationAt(at, seaLevel).getSerializedName();
+            grassColor = biome.getGrassColor(at.getX(), at.getZ());
+        }
+        var effects = biome.getSpecialEffects();
+        return new BiomeInfo(
+                id == null ? "unknown" : id.toString(),
+                biome.getBaseTemperature(),
+                biome.climateSettings.downfall(),
+                biome.hasPrecipitation(),
+                precipitation,
+                grassColor,
+                biome.getFoliageColor(),
+                biome.getDryFoliageColor(),
+                effects.waterColor(),
+                effects.grassColorModifier().getSerializedName());
     }
 
     List<BiomeInfo> levelListBiomesInDimension(String dimensionId) {
@@ -474,11 +504,8 @@ final class WorldOps {
                 .forEach(
                         h ->
                                 out.add(
-                                        new BiomeInfo(
-                                                h.key().identifier().toString(),
-                                                h.value().getBaseTemperature(),
-                                                0.0f,
-                                                h.value().hasPrecipitation())));
+                                        describeBiome(
+                                                h.key().identifier(), h.value(), null, 0)));
         return out;
     }
 

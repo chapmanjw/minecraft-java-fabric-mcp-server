@@ -42,6 +42,17 @@ public final class LevelListBiomesInDimensionTool extends BaseTool {
                         n.put("temperature", b.temperature());
                         n.put("downfall", b.downfall());
                         n.put("hasPrecipitation", b.hasPrecipitation());
+                        // Position-dependent, so absent when the descriptor had no block to resolve against.
+                        if (b.precipitation() != null) {
+                            n.put("precipitation", b.precipitation());
+                        }
+                        if (b.grassColor() != null) {
+                            n.put("grassColor", BiomeInfo.hex(b.grassColor()));
+                        }
+                        n.put("foliageColor", BiomeInfo.hex(b.foliageColor()));
+                        n.put("dryFoliageColor", BiomeInfo.hex(b.dryFoliageColor()));
+                        n.put("waterColor", BiomeInfo.hex(b.waterColor()));
+                        n.put("grassColorModifier", b.grassColorModifier());
                     }
                     return ToolResult.ofToon(arr);
                 });
