@@ -144,7 +144,18 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
                 dims,
                 // registeredToolCount: the adapter has no view of the tool registry; the
                 // server_get_status tool overrides this with the real count.
-                -1);
+                -1,
+                // World and pack formats. Identical API on all four targets (verified with javap),
+                // so no version gate. dataVersion is what structure_file_write has to embed in the
+                // NBT it writes; exposing it here means a caller can read it instead of hardcoding
+                // a number that silently rots across Minecraft versions.
+                SharedConstants.getCurrentVersion().dataVersion().version(),
+                SharedConstants.getCurrentVersion()
+                        .packVersion(net.minecraft.server.packs.PackType.SERVER_DATA)
+                        .major(),
+                SharedConstants.getCurrentVersion()
+                        .packVersion(net.minecraft.server.packs.PackType.CLIENT_RESOURCES)
+                        .major());
     }
 
     /**

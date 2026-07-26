@@ -53,6 +53,12 @@ public final class Jsons {
         n.put("onlinePlayerCount", s.onlinePlayerCount());
         n.put("maxPlayers", s.maxPlayers());
         n.put("registeredToolCount", s.registeredToolCount());
+        // World/pack format numbers. structure_file_write needs dataVersion embedded in the NBT it
+        // writes, and callers previously had to hardcode a value they could not query — which then
+        // silently rots across Minecraft versions.
+        n.put("dataVersion", s.dataVersion());
+        n.put("datapackFormat", s.datapackFormat());
+        n.put("resourcePackFormat", s.resourcePackFormat());
         ArrayNode dims = n.putArray("loadedDimensions");
         for (String d : s.loadedDimensions()) {
             dims.add(d);

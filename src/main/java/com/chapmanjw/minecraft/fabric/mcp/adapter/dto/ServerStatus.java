@@ -17,7 +17,10 @@ public record ServerStatus(
         int onlinePlayerCount,
         int maxPlayers,
         List<String> loadedDimensions,
-        int registeredToolCount) {
+        int registeredToolCount,
+        int dataVersion,
+        int datapackFormat,
+        int resourcePackFormat) {
 
     public ServerStatus {
         loadedDimensions = loadedDimensions == null ? List.of() : List.copyOf(loadedDimensions);

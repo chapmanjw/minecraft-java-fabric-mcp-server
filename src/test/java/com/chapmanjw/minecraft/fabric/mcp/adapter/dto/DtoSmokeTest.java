@@ -293,10 +293,13 @@ class DtoSmokeTest {
                         2,
                         20,
                         List.of("minecraft:overworld"),
-                        110);
+                        110,
+                        4082,
+                        81,
+                        64);
         assertEquals(1, s.loadedDimensions().size());
 
-        var bare = new ServerStatus("v", "l", "m", "motd", 0, 20.0, 50.0, 0, 0, null, 0);
+        var bare = new ServerStatus("v", "l", "m", "motd", 0, 20.0, 50.0, 0, 0, null, 0, 0, 0, 0);
         assertTrue(bare.loadedDimensions().isEmpty());
     }
 

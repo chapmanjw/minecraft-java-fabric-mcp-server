@@ -8,10 +8,10 @@ and Fabric Loader versions; using mismatched dependencies is unsupported.
 
 | Minecraft | Fabric Loader | Fabric API           | Mappings        | JDK | Loom plugin ID                  |
 | --------- | ------------- | -------------------- | --------------- | --- | ------------------------------- |
-| 1.21.11   | 0.19.2        | 0.141.5+1.21.11      | Mojang official | 21  | `fabric-loom` (LoomGradlePlugin)         |
-| 26.1.1    | 0.19.2        | 0.145.4+26.1.1       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
-| 26.1.2    | 0.19.2        | 0.155.2+26.1.2       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
-| 26.2      | 0.19.2        | 0.155.2+26.2         | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 1.21.11   | 0.19.3        | 0.141.5+1.21.11      | Mojang official | 21  | `fabric-loom` (LoomGradlePlugin)         |
+| 26.1.1    | 0.19.3        | 0.145.4+26.1.1       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.1.2    | 0.19.3        | 0.155.2+26.1.2       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.2      | 0.19.3        | 0.155.2+26.2         | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
 
 Each jar declares `depends.minecraft` as the **exact** version it was built against — the 26.2 jar
 is `"26.2"`, not `">=26.2"` — so Fabric Loader accepts it on that version and refuses it anywhere

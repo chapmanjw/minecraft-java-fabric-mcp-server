@@ -39,6 +39,14 @@ the client inspection surface needed real porting rather than a version bump.
 
 - Fabric API moved to `0.155.2+26.1.2` (from `0.149.0`) and `0.141.5+1.21.11` (from `0.141.4`).
   26.1.1 stays on `0.145.4`, which is the newest release for that line.
+- Fabric Loader moved to `0.19.3` (from `0.19.2`) on all four targets. Fabric's meta API lists
+  0.19.3 as valid for every supported Minecraft version.
+- `server_get_status` now reports `dataVersion`, `datapackFormat` and `resourcePackFormat`.
+  `structure_file_write` requires the data version to be embedded in the NBT it writes, and callers
+  previously had to hardcode a number they could not query — one that silently goes stale across
+  Minecraft versions. The accessors (`SharedConstants.getCurrentVersion().dataVersion()` and
+  `.packVersion(PackType)`) are identical on all four targets, so no version gate is involved. The
+  fields are purely additive.
 - `EntityType.LIGHTNING_BOLT` → `EntityTypes.LIGHTNING_BOLT` on 26.2. 26.2 emptied `EntityType` of
   its constants — all 157 of them moved to a new `EntityTypes` class.
 - Team colour now reads through a helper: 26.2 changed `Team.getColor()` from a nullable
