@@ -88,10 +88,16 @@ public final class McpClientMod implements ClientModInitializer {
     private void onClientStarted(Minecraft client) {
         try {
             Path configPath = clientConfigFilePath();
+            boolean hadConfigFile = java.nio.file.Files.isRegularFile(configPath);
             Config config =
                     new ConfigLoader(CLIENT_ENV_PREFIX, Config.clientDefaults()).load(configPath);
             this.loadedConfig = config;
-            LOGGER.info("MCP client config loaded from {}", configPath);
+            if (hadConfigFile) {
+                LOGGER.info("MCP client config loaded from {}", configPath);
+            } else {
+                LOGGER.info(
+                        "No MCP client config at {} — using built-in defaults", configPath);
+            }
 
             McEnvironment env = McEnvironment.capture();
             ToolCompatibilityFilter filter = new ToolCompatibilityFilter(env, config);

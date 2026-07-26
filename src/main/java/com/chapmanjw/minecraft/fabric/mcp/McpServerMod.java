@@ -80,9 +80,19 @@ public final class McpServerMod implements ModInitializer {
             // 1) Config
             // -----------------------------------------------------------
             Path configPath = configFilePath();
+            // Record existence BEFORE loading: the loader falls back to defaults for a missing
+            // file, and reporting "loaded from <path>" either way sends anyone debugging a config
+            // problem hunting for a file that was never read.
+            boolean hadConfigFile = java.nio.file.Files.isRegularFile(configPath);
             Config config = new ConfigLoader().load(configPath);
             this.loadedConfig = config;
-            LOGGER.info("MCP server config loaded from {}", configPath);
+            if (hadConfigFile) {
+                LOGGER.info("MCP server config loaded from {}", configPath);
+            } else {
+                LOGGER.info(
+                        "No MCP server config at {} — using built-in defaults (lean tool surface)",
+                        configPath);
+            }
 
             // -----------------------------------------------------------
             // 2) Environment + compat filter + tool registry

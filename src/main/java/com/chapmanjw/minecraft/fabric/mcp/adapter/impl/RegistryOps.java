@@ -720,7 +720,12 @@ final class RegistryOps {
                                                         f -> blockIdOf(f.getBaseBlock()))))
                 .map(
                         family -> {
-                            java.util.Map<String, String> variants = new java.util.LinkedHashMap<>();
+                            // TreeMap, not LinkedHashMap: BlockFamily.getVariants() is a
+                            // HashMap keyed by an enum-like Variant, so its iteration order
+                            // is not stable across JVM runs. Observed live — the same block
+                            // returned its variants in a different order after a restart.
+                            // Sorting by variant name makes the output byte-comparable.
+                            java.util.Map<String, String> variants = new java.util.TreeMap<>();
                             String matched =
                                     family.getBaseBlock() == target ? "base" : "";
                             for (var e : family.getVariants().entrySet()) {

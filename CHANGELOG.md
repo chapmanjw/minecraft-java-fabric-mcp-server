@@ -116,6 +116,14 @@ the client inspection surface needed real porting rather than a version bump.
 - **`mc_constraint` was not declared as a `processResources` input**, so changing how it is derived
   left the task `UP-TO-DATE` and silently kept templating the previous value into
   `fabric.mod.json`. It is now a tracked input.
+- **`block_family_variants` returned its variants in an unstable order.** The family *selection* was
+  already made deterministic, but the variant map preserved `BlockFamily.getVariants()` iteration
+  order, which is identity-hash ordered and therefore varies between JVM runs — observed live, the
+  same block answered `stairs, wall, slab` on one boot and `slab, stairs, wall` on the next. Now a
+  `TreeMap`, so the output is byte-comparable across restarts.
+- **The mod logged `config loaded from <path>` even when no config file existed**, sending anyone
+  debugging a config problem to hunt for a file that was never read. It now distinguishes the two
+  cases and says when it is falling back to built-in defaults. Fixed in both entrypoints.
 
 ## [1.0.0] - 2026-06-07
 
