@@ -51,10 +51,32 @@ final class GameplayOps {
     // Scoreboard — delegate to commands
     // =====================================================================
 
+    /**
+     * Resolves which display slot an objective currently occupies, or "" for none.
+     *
+     * <p>Vanilla only stores the mapping in one direction -- slot to objective -- so the only way
+     * to answer "where is this objective shown" is to scan the slots. This field used to be
+     * hardcoded to "", which meant an objective that was visibly rendering in the sidebar still
+     * reported no display slot; confirmed live on 1.21.11 by capturing the client while
+     * scoreboard_list_objectives claimed the slot was empty.
+     */
+    private static String displaySlotOf(
+            net.minecraft.world.scores.Scoreboard scoreboard,
+            net.minecraft.world.scores.Objective objective) {
+        for (net.minecraft.world.scores.DisplaySlot slot
+                : net.minecraft.world.scores.DisplaySlot.values()) {
+            if (scoreboard.getDisplayObjective(slot) == objective) {
+                return slot.getSerializedName();
+            }
+        }
+        return "";
+    }
+
     List<ScoreboardObjectiveInfo> scoreboardListObjectives() {
         MinecraftServer s = ctx.requireServer();
         List<ScoreboardObjectiveInfo> out = new ArrayList<>();
-        s.getScoreboard()
+        var scoreboard = s.getScoreboard();
+        scoreboard
                 .getObjectives()
                 .forEach(
                         obj ->
@@ -63,7 +85,7 @@ final class GameplayOps {
                                                 obj.getName(),
                                                 obj.getDisplayName().getString(),
                                                 obj.getCriteria().getName(),
-                                                "")));
+                                                displaySlotOf(scoreboard, obj))));
         return out;
     }
 
