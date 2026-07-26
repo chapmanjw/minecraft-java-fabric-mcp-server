@@ -53,7 +53,10 @@ the client inspection surface needed real porting rather than a version bump.
   `ChatFormatting` to `Optional<TeamColor>`. Both spellings produce the same lowercase colour name,
   so tool output is unchanged.
 - On 26.2, `view_capture` reads the framebuffer via `gameRenderer.mainRenderTarget()` and closes
-  screens with `setScreenAndShow(null)`; both replaced members that 26.2 removed from `Minecraft`.
+  screens with `Gui.setScreen(null)`. Both accessors moved off `Minecraft`: the framebuffer onto
+  `GameRenderer`, and both screen members onto `Gui`. Note `setScreenAndShow` is *not* the rename
+  of `setScreen` — it exists on 26.1.x too and wraps `Gui.setScreen` with an extra synchronous
+  `renderFrame`, which would have made 26.2 render a frame the other three targets do not.
 - **The CurseForge Client/Server environment is now set by the publish workflow** instead of by hand
   in the CurseForge file console after every release. mc-publish v3.3.1 (released 2026-07-14, its
   first release in over three years) added an `environment` input; CurseForge began *requiring* an
