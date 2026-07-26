@@ -34,7 +34,7 @@ jacksonAnnotations = "2.21"
 slf4j = "2.0.9"
 
 # Test-only.
-junit = "5.10.2"
+junit = "6.1.2"
 mockito = "5.11.0"
 
 [libraries]
