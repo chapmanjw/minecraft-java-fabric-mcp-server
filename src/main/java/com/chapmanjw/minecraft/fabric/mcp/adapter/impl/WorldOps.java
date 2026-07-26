@@ -104,13 +104,22 @@ final class WorldOps {
             BlockPos spawn = level.getRespawnData().pos();
             String weather =
                     level.isThundering() ? "thunder" : (level.isRaining() ? "rain" : "clear");
+            // Which countdown is meaningful depends on what the weather currently IS. While a
+            // clear spell is locked in, vanilla's advanceWeatherCycle pins rainTime to 1 or 2 every
+            // tick (it only decrements clearWeatherTime), so reporting rainTime made a 12000-tick
+            // clear lock read as "weatherRemainingTicks: 1" -- i.e. about to change, when in fact
+            // nothing could change for ten minutes. Report the clear countdown when clear, and the
+            // rain/thunder countdown otherwise. Not version-specific: both branches had this.
+            boolean isClear = "clear".equals(weather);
             int weatherRemaining = 0;
             //? if mc_gte_26 {
-            weatherRemaining = level.getWeatherData().getRainTime();
+            var weatherData = level.getWeatherData();
+            weatherRemaining =
+                    isClear ? weatherData.getClearWeatherTime() : weatherData.getRainTime();
             //?} else {
             /*LevelData data = level.getLevelData();
             if (data instanceof ServerLevelData sld) {
-                weatherRemaining = sld.getRainTime();
+                weatherRemaining = isClear ? sld.getClearWeatherTime() : sld.getRainTime();
             }
             *///?}
             //? if mc_gte_26 {
