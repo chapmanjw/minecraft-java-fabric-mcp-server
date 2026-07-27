@@ -53,6 +53,54 @@ class McpDispatcherTest {
     }
 
     @Test
+    void toolsListEmitsAnnotationsForAWriteTool() throws Exception {
+        // The registered "echo" tool is WRITE. Every annotation field defaults in the cautious
+        // direction when omitted (destructiveHint true, openWorldHint true), so the point of this
+        // test is that we state them rather than let a client assume.
+        JsonNode req = mapper.readTree("{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\"}");
+        JsonNode tool = dispatcher.handle(req).path("result").path("tools").get(0);
+        JsonNode ann = tool.path("annotations");
+        assertFalse(ann.isMissingNode(), "tools/list must emit an annotations object");
+        assertFalse(ann.path("readOnlyHint").asBoolean(), "WRITE is not read-only");
+        assertTrue(ann.path("destructiveHint").asBoolean(),
+                "WRITE overwrites existing state, so it is destructive rather than additive");
+        assertFalse(ann.path("openWorldHint").asBoolean(),
+                "every tool acts on the local Minecraft server, never an external system");
+        // Idempotency varies per write tool and cannot be derived from the access level, so it
+        // must be left unset rather than guessed; the spec default of false is the safe reading.
+        assertTrue(ann.path("idempotentHint").isMissingNode(),
+                "idempotentHint must not be asserted for WRITE tools");
+        assertEquals("Echo", ann.path("title").asText());
+        assertEquals("Echo", tool.path("title").asText(), "title is also a top-level tool field");
+    }
+
+    @Test
+    void toolsListMarksReadOnlyToolsAsSafe() throws Exception {
+        ToolRegistry readRegistry = new ToolRegistry();
+        readRegistry.register(
+                new ToolDescriptor(
+                        "level_poi_query", "Query POIs", "", "", java.util.List.of(), "",
+                        ToolCategory.WORLD,
+                        com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess.READ,
+                        EchoTool.class),
+                new EchoTool());
+        McpDispatcher readDispatcher =
+                new McpDispatcher(
+                        readRegistry,
+                        new ToolContext(null, null, null, null, mapper, null, null),
+                        mapper,
+                        new McpDispatcher.ServerInfo("test", "0.0.0", null));
+        JsonNode req = mapper.readTree("{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/list\"}");
+        JsonNode tool = readDispatcher.handle(req).path("result").path("tools").get(0);
+        JsonNode ann = tool.path("annotations");
+        assertTrue(ann.path("readOnlyHint").asBoolean());
+        assertFalse(ann.path("destructiveHint").asBoolean(), "a READ tool performs no updates");
+        assertTrue(ann.path("idempotentHint").asBoolean(), "repeating a read changes nothing");
+        // Acronyms would otherwise title-case into "Poi".
+        assertEquals("Level POI Query", ann.path("title").asText());
+    }
+
+    @Test
     void toolsListIncludesRegisteredTool() throws Exception {
         JsonNode req = mapper.readTree("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}");
         JsonNode resp = dispatcher.handle(req);

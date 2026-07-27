@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.chapmanjw.minecraft.fabric.mcp.compat.ToolAccess;
+import com.chapmanjw.minecraft.fabric.mcp.compat.ToolDescriptor;
 import com.chapmanjw.minecraft.fabric.mcp.protocol.error.ErrorCodes;
 import com.chapmanjw.minecraft.fabric.mcp.protocol.error.McpException;
 
@@ -152,14 +154,92 @@ public final class McpDispatcher {
             ObjectNode toolNode = mapper.createObjectNode();
             toolNode.put("name", entry.descriptor().name());
             toolNode.put("description", entry.descriptor().description());
+            toolNode.put("title", displayTitle(entry.descriptor().name()));
             toolNode.set("inputSchema", entry.tool().inputSchema());
             JsonNode outputSchema = entry.tool().outputSchema();
             if (outputSchema != null) {
                 toolNode.set("outputSchema", outputSchema);
             }
+            toolNode.set("annotations", annotationsFor(entry.descriptor()));
             arr.add(toolNode);
         }
         return result;
+    }
+
+    /**
+     * Behaviour hints for one tool, per the MCP {@code ToolAnnotations} shape.
+     *
+     * <p>Emitting these is not cosmetic. Every field defaults in the direction of caution when
+     * omitted -- {@code destructiveHint} defaults to TRUE and {@code openWorldHint} to TRUE -- so
+     * a server that sends no annotations is telling every client that all 188 of its tools may
+     * destroy things and may reach arbitrary external systems. For a surface that is mostly
+     * read-only inspection of a local world, staying silent is actively misleading.
+     *
+     * <p>The mapping is derived from {@link ToolAccess}, which the registry already computes:
+     *
+     * <ul>
+     *   <li>{@code readOnlyHint} -- true only for READ. That is the level's definition.
+     *   <li>{@code destructiveHint} -- false for READ (it performs no updates at all), true for
+     *       WRITE and ADMIN. WRITE is genuinely destructive rather than merely additive: filling a
+     *       region overwrites whatever occupied it, and setting a block state replaces the block
+     *       that was there. Claiming otherwise would understate the risk.
+     *   <li>{@code openWorldHint} -- false everywhere. The entire domain of interaction is one
+     *       Minecraft server this mod is running inside. Nothing here reaches an external system.
+     *   <li>{@code idempotentHint} -- true only for READ, where repeating a call cannot change
+     *       anything. It is deliberately NOT set for WRITE, because idempotency varies per tool
+     *       and cannot be derived from the access level: setting a block state twice is
+     *       idempotent, but summoning an entity or giving an item twice is not. Omitting it
+     *       falls back to the spec default of false, which is the safe reading.
+     * </ul>
+     */
+    private ObjectNode annotationsFor(ToolDescriptor descriptor) {
+        ObjectNode annotations = mapper.createObjectNode();
+        annotations.put("title", displayTitle(descriptor.name()));
+        boolean readOnly = descriptor.access() == ToolAccess.READ;
+        annotations.put("readOnlyHint", readOnly);
+        annotations.put("destructiveHint", !readOnly);
+        annotations.put("openWorldHint", false);
+        if (readOnly) {
+            annotations.put("idempotentHint", true);
+        }
+        return annotations;
+    }
+
+    /** Acronyms that would otherwise title-case into nonsense ("Poi", "Nbt", "Motd"). */
+    private static final java.util.Map<String, String> TITLE_ACRONYMS =
+            java.util.Map.ofEntries(
+                    java.util.Map.entry("poi", "POI"),
+                    java.util.Map.entry("nbt", "NBT"),
+                    java.util.Map.entry("snbt", "SNBT"),
+                    java.util.Map.entry("mcp", "MCP"),
+                    java.util.Map.entry("xp", "XP"),
+                    java.util.Map.entry("motd", "MOTD"),
+                    java.util.Map.entry("tps", "TPS"),
+                    java.util.Map.entry("uuid", "UUID"),
+                    java.util.Map.entry("nether", "Nether"),
+                    java.util.Map.entry("png", "PNG"));
+
+    /**
+     * Turns a snake_case tool id into a human-readable title, e.g. {@code level_poi_query} into
+     * "Level POI Query". Clients display this instead of the raw id where they have room for it.
+     */
+    private static String displayTitle(String toolName) {
+        StringBuilder out = new StringBuilder(toolName.length() + 4);
+        for (String part : toolName.split("_")) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            String acronym = TITLE_ACRONYMS.get(part);
+            if (acronym != null) {
+                out.append(acronym);
+            } else {
+                out.append(Character.toUpperCase(part.charAt(0))).append(part, 1, part.length());
+            }
+        }
+        return out.toString();
     }
 
     // --- tools/call ----------------------------------------------------------
