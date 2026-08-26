@@ -27,7 +27,7 @@
 # the build fail to resolve jackson-annotations:2.21.5. Verified against repo1: annotations
 # 2.21 -> 200, annotations 2.21.5 -> 404, databind/core 2.21.5 -> 200. Bump the two refs
 # together and keep them on the same minor line.
-jackson = "2.22.1"
+jackson = "2.22.2"
 jacksonAnnotations = "2.22"
 
 # Provided by Minecraft at runtime -- compileOnly, never bundled. Track what MC ships.
