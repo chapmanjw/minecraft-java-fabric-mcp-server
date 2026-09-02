@@ -16,7 +16,7 @@ plugins {
     `maven-publish`
     id("net.fabricmc.fabric-loom") version "1.16-SNAPSHOT"
     id("dev.kikugie.stonecutter")
-    id("com.diffplug.spotless") version "8.9.0"
+    id("com.diffplug.spotless") version "8.10.1"
     id("checkstyle")
 }
 
