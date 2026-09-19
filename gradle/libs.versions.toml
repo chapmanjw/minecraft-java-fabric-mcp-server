@@ -31,7 +31,7 @@ jackson = "2.22.2"
 jacksonAnnotations = "2.22"
 
 # Provided by Minecraft at runtime -- compileOnly, never bundled. Track what MC ships.
-slf4j = "2.0.18"
+slf4j = "2.0.19"
 
 # Test-only.
 junit = "6.1.3"
