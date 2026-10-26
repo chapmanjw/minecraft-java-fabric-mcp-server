@@ -61,7 +61,14 @@ Consequently:
   pointing here, and we rely on upstream plugin and game releases to advance those transitives.
   We reserve **`tolerable_risk`** for the different case where a vulnerable path genuinely is
   reachable but the residual exposure is consciously accepted; we will say so explicitly if that
-  ever arises.
+  ever arises. Current accepted risks:
+  - **lz4-java in Minecraft's region storage** (GHSA-4v53-57pg-c464, GHSA-mcr4-qmvw-px4g).
+    Minecraft reads and writes region files through `LZ4BlockInputStream`/`LZ4BlockOutputStream`
+    only when `server.properties` sets `region-file-compression=lz4` (the default is `deflate`).
+    The input is local world files, and the native-library extraction race needs another local
+    user who can write the same temp directory. Mojang pins the lz4-java version, so the fix
+    arrives with a Minecraft update. If you opt into lz4 region compression on a shared host,
+    point `java.io.tmpdir` at a directory only the server user can write.
 - Dependabot version updates are scoped to **direct** dependencies (see
   [`.github/dependabot.yml`](.github/dependabot.yml)) — the deps we actually declare and pin.
 - A CVE in a dependency we **ship** (today: Jackson) or that runs as part of the **mod's runtime**

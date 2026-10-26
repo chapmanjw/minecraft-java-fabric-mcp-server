@@ -8,7 +8,7 @@ plugins {
     `maven-publish`
     id("net.fabricmc.fabric-loom") version "1.16-SNAPSHOT"
     id("dev.kikugie.stonecutter")
-    id("com.diffplug.spotless") version "8.9.0"
+    id("com.diffplug.spotless") version "8.10.4"
     id("checkstyle")
 }
 
@@ -34,7 +34,7 @@ loom {
 spotless {
     java {
         target("src/**/*.java")
-        googleJavaFormat("1.22.0")
+        googleJavaFormat("1.37.0")
         licenseHeaderFile(rootProject.file("config/spotless/license-header.txt"))
         removeUnusedImports()
         importOrder("java", "javax", "")
@@ -54,7 +54,7 @@ spotless {
 }
 
 checkstyle {
-    toolVersion = "10.20.2"
+    toolVersion = "14.3.0"
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
     configProperties["checkstyle.suppressions.file"] =
         rootProject.file("config/checkstyle/suppressions.xml")
