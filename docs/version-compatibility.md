@@ -139,7 +139,7 @@ an empty composter always takes a layer. Fabric API removed `CompostableRegistry
 with it. `content_registry_get_fuel` and `content_registry_is_compostable` evaluate the components in
 the same context vanilla uses (a furnace; a composter that already holds compost), so they report the
 same numbers as on 26.2. `content_registry_set_compostable` has no runtime mutator to call on 26.3 and
-returns `failed` there, as `content_registry_set_fuel` always has.
+is not registered there, so it is absent from `tools/list`.
 
 When adding a Minecraft target, check at minimum: block/item tag ids the build workflows reference,
 game-rule ids, registry key names in `Registries` / `BuiltInRegistries`, and command syntax used by
@@ -157,7 +157,10 @@ The complete cross-version matrix lives in [docs/tools.md](tools.md). High-level
 | `data_attachment_*` | ✅ (requires `fabric-data-attachment-api-v1`) | ✅ | ✅ | ✅ | ✅ |
 | `loot_table_*` | ✅ (requires `fabric-loot-api-v3`) | ✅ | ✅ | ✅ | ✅ |
 | `recipe_*` | ✅ (requires `fabric-recipe-api-v1`) | ✅ | ✅ | ✅ | ✅ |
-| `content_registry_set_compostable` | ✅ | ✅ | ✅ | ✅ | returns `failed` (compostability is an item component) |
+| `content_registry_set_compostable` | ✅ | ✅ | ✅ | ✅ | not registered (compostability is an item component) |
+| `block_transform_preview` | — | — | — | — | ✅ (block transformers are data from 26.3) |
+| `fluid.flow` event | — | — | — | ✅ | ✅ (Fabric fluid flow API, 0.160+) |
+| `level_place_feature` inline `definition` | — | — | — | — | ✅ |
 | Trading-related tools (planned) | ✅ (via `TradeOfferHelper`) | 🚧 (data-driven trades only) | 🚧 | 🚧 | 🚧 |
 
 A tool whose registration is conditional on a Fabric API module simply doesn't appear in `tools/list`

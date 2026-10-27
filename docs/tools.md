@@ -39,7 +39,7 @@ curl -s -XPOST http://localhost:8765/mcp \
 | --- | --- | --- |
 | `level_list_dimensions` | Lists every loaded dimension. | — |
 | `level_get_dimension_info` | Dimension type, height range, biome source. | — |
-| `level_get_info` | Time, weather, difficulty, default game mode, spawn point. | — |
+| `level_get_info` | Time, weather, difficulty, default game mode, spawn point. `weather` is the weather the server has set; `rainLevel` / `thunderLevel` (0.0-1.0) are the visual fade, which lags a change by a few seconds. | — |
 | `level_get_time` / `level_set_time` | Read/write time of day. | — |
 | `level_get_weather` / `level_set_weather` | Read/write weather + duration. | — |
 | `level_get_difficulty` / `level_set_difficulty` | World difficulty. | — |
@@ -50,9 +50,10 @@ curl -s -XPOST http://localhost:8765/mcp \
 | `level_create_explosion` | Creates an explosion. | — |
 | `level_get_game_rule` / `level_set_game_rule` / `level_list_game_rules` | Game-rule access. | `fabric-game-rule-api-v1` (set) |
 | `level_get_biome_at` | Biome at a block. | `fabric-biome-api-v1` |
+| `level_get_mob_spawns` | What can spawn naturally at a position, grouped by mob category (`monster`, `creature`, …): entity type, weight, group size. Uses the game's own lookup, so structure overrides (witch huts, ocean monuments, fortresses) are included. Optional `category`. | — |
 | `level_list_biomes_in_dimension` | Every biome registered for a dimension. | `fabric-biome-api-v1` |
-| `level_place_feature` | Grows a vanilla worldgen feature at a position (`/place feature`) — trees, vegetation, ore veins, geodes, dripstone. Adds natural detail without stamping identical copies. | — |
-| `level_place_features_batch` | Grows many vanilla worldgen features in one call — the batch form of `level_place_feature` and the throughput path for a vegetation/detail scatter (`features[]` of `{feature, x, y, z}`, optional `stop_on_error`). One main-thread submission, one rate-limit slot for the whole list. Capped at 4096 entries/call; reports per-entry `placed`/`failed`. | — |
+| `level_place_feature` | Grows a vanilla worldgen feature at a position (`/place feature`) — trees, vegetation, ore veins, geodes, dripstone. Adds natural detail without stamping identical copies. Give `feature` (an id) or, on 26.3+, `definition` (an inline configured-feature object in the 26.3 format: no `config` wrapper, block states as `{"id": …}`). | — |
+| `level_place_features_batch` | Grows many vanilla worldgen features in one call — the batch form of `level_place_feature` and the throughput path for a vegetation/detail scatter (`features[]` of `{feature, x, y, z}`, or `{definition, x, y, z}` on 26.3+; optional `stop_on_error`). One main-thread submission, one rate-limit slot for the whole list. Capped at 4096 entries/call; reports per-entry `placed`/`failed`. | — |
 | `level_fill_biome` | Paints the biome of a region (`/fillbiome`) — foliage/water tint, mob spawns, climate; optional `replace_filter`. | — |
 
 ## Block
@@ -73,6 +74,7 @@ curl -s -XPOST http://localhost:8765/mcp \
 | `block_scan_region` | Scan a bounded region for matching blocks (volume capped at 65,536). |
 | `block_scan_summary` | Aggregate scan of a box (≤ 1,048,576): material histogram, non-air count, and non-air bounding box — server-side, so no per-block rows flood the client. |
 | `block_get_map_color` | Base map colour of a block: packed `rgb`, `#RRGGBB` hex, r/g/b, palette id. |
+| `block_transform_preview` | 26.3+ only. What using `tool` (axe, hoe, shovel, or any item with a `block_transformer` component) on the block at a position, optional `face`, would produce: `result_block` / `result_properties`, sound, whether the item is consumed or damaged, and `face_blocked` when the clicked face rules it out. Read-only. |
 | `block_render_region` | Render a region to a PNG (`iso`/`side`/`front`/`top`/`hillshade`) from block map colours — server-side, no client needed. `hillshade` is a relief-shaded plan view for terrain (terraces/ziggurats show as flat bands). `step` downsamples; `scale` is pixels per voxel. Returns an `image` content block. |
 
 ## BlockEntity
@@ -131,7 +133,7 @@ curl -s -XPOST http://localhost:8765/mcp \
 
 | Name | Description |
 | --- | --- |
-| `itemstack_describe` | Returns max stack size, durability, components for a given spec. Validates item id. |
+| `itemstack_describe` | Returns max stack size, durability and component ids for a given spec. Validates item id. `include_values: true` adds a `components` object of component id to JSON value (the saved form); `component_filter` narrows it. |
 | `itemstack_drop_at` | Spawn a dropped-item entity at a position. |
 
 ## Command
@@ -221,10 +223,10 @@ same numbers as earlier targets.
 
 | Name | Description | Modules |
 | --- | --- | --- |
-| `content_registry_get_fuel` | Read a fuel's burn time in ticks in a regular furnace (0 = not fuel). Blast furnaces and smokers burn twice as fast. | `fabric-content-registries-v0` |
+| `content_registry_get_fuel` | Read how an item burns: `burn_time_ticks` (regular furnace; 0 = not fuel), `burn_time_ticks_fast` (blast furnace and smoker), `speed_multiplier` (1.0 before 26.3), `brewing_fuel_uses` (brews per item in a brewing stand). | `fabric-content-registries-v0` |
 | `content_registry_set_fuel` | Stubbed — Fabric exposes fuel registration only via build-time events. | `fabric-content-registries-v0` |
 | `content_registry_is_flammable_block` / `content_registry_set_flammable_block` | Read or override per-block burn / spread chances. | `fabric-content-registries-v0` |
-| `content_registry_is_compostable` / `content_registry_set_compostable` | Read or override the chance one item adds a layer to a composter that already holds compost. The setter returns `failed` on 26.3, where compostability is fixed per item. | `fabric-content-registries-v0` |
+| `content_registry_is_compostable` / `content_registry_set_compostable` | Read or override the chance one item adds a layer to a composter that already holds compost. The setter is not registered on 26.3, where compostability is fixed per item. | `fabric-content-registries-v0` |
 
 ## Fluid Storage
 
@@ -289,7 +291,10 @@ same numbers as earlier targets.
 | `events_list_subscriptions` | List active subscriptions. | — |
 | `events_unsubscribe` | Remove a subscription. | — |
 
-Supported event types (each can be subscribed independently):
+Event types (each can be subscribed independently). Only these are emitted today:
+`server.*`, `player.join`, `player.leave`, `player.chat`, `block.break`, `block.use`, and
+`fluid.flow` on 26.2+. The others are declared for future wiring, and `events_subscribe` rejects
+them with the deliverable list rather than handing out a subscription that never fires.
 
 - Server: `server.tick`, `server.starting`, `server.started`, `server.stopping`, `server.stopped`
 - Player: `player.join`, `player.leave`, `player.chat`, `player.respawn`, `player.death`
@@ -297,6 +302,10 @@ Supported event types (each can be subscribed independently):
 - Block: `block.break`, `block.place`, `block.use`
 - Item: `item.use`, `item.craft`
 - Container: `container.open`, `container.close`
+- Fluid: `fluid.flow` (26.2+). Fires when a fluid flows or updates at a position, which is very
+  high volume, so it needs `filters.region` = `{dimension, from:{x,y,z}, to:{x,y,z}}` and is
+  rate-limited by `filters.max_per_second` (default 20, max 1000). Payload:
+  `{dimension, x, y, z, fluid, source, amount}`. Polls and listings report `rate_limited_count`.
 
 Event payloads are domain-specific JSON objects with at minimum the keys `type` (matching the
 subscribed event type) and `timestamp` (ISO-8601). See the wire-shape documented at the call

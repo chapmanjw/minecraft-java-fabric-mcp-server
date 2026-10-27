@@ -6,16 +6,17 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [1.2.0] - Unreleased
 
-Adds Minecraft 26.3 as a fifth build target and moves every target to its newest Fabric API.
-Minor rather than patch because three tools now behave differently in ways a caller can notice
-(see "Changed").
+Adds Minecraft 26.3 as a fifth build target, moves every target to its newest Fabric API, and adds
+two tools, one event type and several new tool fields. Minor rather than patch because some tools
+now behave differently in ways a caller can notice (see "Changed").
 
 ### Changed — read before upgrading
 
-- `content_registry_set_compostable` returns `failed` on 26.3. Minecraft 26.3 made compostability
-  the item's `compostable` data component, fixed when items register, and Fabric API removed
-  `CompostableRegistry` along with it, so there is nothing to call at runtime. Earlier targets are
-  unchanged. `content_registry_set_fuel` already returned `failed` everywhere and still does.
+- `content_registry_set_compostable` is not registered on 26.3, so it is absent from `tools/list`
+  there. Minecraft 26.3 made compostability the item's `compostable` data component, fixed when
+  items register, and Fabric API removed `CompostableRegistry` along with it, so there is nothing to
+  call at runtime. Earlier targets are unchanged. `content_registry_set_fuel` still returns `failed`
+  everywhere.
 - `player.chat` events now carry a `chat_type` field. From Fabric API 0.157 (on the 26.2 and 26.3
   targets) the chat event also fires for messages players send through `/say`, `/msg`, `/me` and
   similar commands, so a 26.2 or 26.3 server delivers events that earlier pins did not. Filter on
@@ -24,7 +25,19 @@ Minor rather than patch because three tools now behave differently in ways a cal
   of the rain and thunder levels. Those levels ramp by 0.01 per tick, so a read straight after
   `level_set_weather` reported the previous weather for about a second (rain) or four and a half
   seconds (thunder), and `level_get_info` paired that stale label with the new spell's countdown.
-  Affects every target.
+  Affects every target. `level_get_info` also gains `rainLevel` and `thunderLevel` (0.0 to 1.0),
+  the visual fade the sky is in, which lags the state by a few seconds after a change.
+- `worldborder_set_center` put every whole-number centre half a block off: `128` became 128.5.
+  The value was sent without a decimal point, which vanilla's `/worldborder center` treats as a
+  block position and centres. It now always sends one. Affects every target since 1.1.0.
+- `content_registry_get_fuel` returns three more fields: `burn_time_ticks_fast` (blast furnace and
+  smoker), `speed_multiplier` (always 1.0 before 26.3) and `brewing_fuel_uses`
+  (`burn_time_ticks` is unchanged).
+- `level_place_feature` takes an inline `definition` (a configured-feature JSON object) as an
+  alternative to `feature` on 26.3, which accepts inline features in `/place feature`; batch
+  entries in `level_place_features_batch` take it too. `feature` is now optional, and exactly one
+  of the two is required. Older targets refuse `definition` with an error naming 26.3. Note the
+  26.3 feature format is flattened: no `config` wrapper, and block states are `{"id": ...}`.
 - Each jar now requires the Fabric API it was built against or newer: `0.141.6+1.21.11`,
   `0.145.4+26.1.1`, `0.155.3+26.1.2`, `0.161.0+26.2`, `0.165.0+26.3`. Fabric Loader stays 0.19.3.
 
@@ -41,6 +54,23 @@ Minor rather than patch because three tools now behave differently in ways a cal
   components in the contexts vanilla builds (a furnace; a composter that already holds compost),
   so they report the same numbers as earlier targets. Verified live: coal 1600 ticks (matching a
   real furnace's `lit_total_time`), and compost tiers 0.3 / 0.5 / 0.65 / 0.85 / 1.0.
+- `level_get_mob_spawns` (every target): what can spawn naturally at a position, grouped by mob
+  category, with weights and group sizes. It uses the game's own lookup, so structure overrides
+  such as witch huts, ocean monuments and fortresses are included. On 26.3 the biome's list is the
+  `minecraft:gameplay/natural_mob_spawns` environment attribute.
+- `block_transform_preview` (26.3 only): what using an axe, hoe, shovel or any item carrying a
+  `block_transformer` component on the block at a position would produce (stripping, scraping and
+  un-waxing copper, tilling, paths), evaluated with the game's own rules without changing the world.
+  Reports the result state, sound, whether the item is consumed or damaged, and whether the clicked
+  face ruled it out.
+- `fluid.flow` event type (26.2 and 26.3): fires when a fluid flows or updates at a position. It is
+  very high volume (one water source produced hundreds of events a second in testing), so
+  `events_subscribe` requires `filters.region` (`{dimension, from, to}`) and rate-limits delivery
+  with `filters.max_per_second` (default 20, max 1000). Subscription listings and polls report
+  `rate_limited_count`. With no subscriber the listener costs one array read.
+- `itemstack_describe` returns component values on request: `include_values` adds a `components`
+  object of component id to JSON value, encoded with each component's codec, and
+  `component_filter` narrows it. Default output is unchanged.
 - MCP tool annotations and titles in `tools/list`. Without an `annotations` object every MCP
   client assumes each tool may be destructive and open-world. `readOnlyHint`, `destructiveHint`,
   `idempotentHint` and `openWorldHint` now come from each tool's access level, and each tool gets a
@@ -51,7 +81,7 @@ Minor rather than patch because three tools now behave differently in ways a cal
 - `content_registry_is_compostable` threw "Missing registry: minecraft:context_int_provider" on
   26.3. That registry is reloadable and absent from the server's static registry access; the
   provider is now resolved through the loot context, as vanilla does.
-- The stale weather read described under "Changed".
+- The stale weather read and the world border centre offset described under "Changed".
 
 ### Notes
 
