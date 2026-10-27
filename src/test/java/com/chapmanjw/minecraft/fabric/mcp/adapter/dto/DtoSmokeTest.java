@@ -269,6 +269,8 @@ class DtoSmokeTest {
                         500,
                         "rain",
                         2400,
+                        1.0f,
+                        0.0f,
                         "normal",
                         false,
                         "survival",
@@ -277,6 +279,8 @@ class DtoSmokeTest {
         assertEquals("rain", l.weather());
         assertFalse(l.difficultyLocked());
         assertEquals(2400, l.weatherRemainingTicks());
+        assertEquals(1.0f, l.rainLevel());
+        assertEquals(0.0f, l.thunderLevel());
     }
 
     @Test

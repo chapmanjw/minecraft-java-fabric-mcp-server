@@ -73,6 +73,8 @@ public final class Jsons {
         n.put("gameTime", info.gameTime());
         n.put("weather", info.weather());
         n.put("weatherRemainingTicks", info.weatherRemainingTicks());
+        n.put("rainLevel", info.rainLevel());
+        n.put("thunderLevel", info.thunderLevel());
         n.put("difficulty", info.difficulty());
         n.put("difficultyLocked", info.difficultyLocked());
         n.put("defaultGameMode", info.defaultGameMode());

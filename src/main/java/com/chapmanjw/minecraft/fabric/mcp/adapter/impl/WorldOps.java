@@ -132,6 +132,8 @@ final class WorldOps {
                             level.getGameTime(),
                             weather,
                             weatherRemaining,
+                            level.getRainLevel(1.0f),
+                            level.getThunderLevel(1.0f),
                             level.getDifficulty().getSerializedName(),
                             level.getLevelData().isDifficultyLocked(),
                             ctx.requireServer().getDefaultGameType().getName(),

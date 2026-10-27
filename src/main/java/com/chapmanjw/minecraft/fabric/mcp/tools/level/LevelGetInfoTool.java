@@ -16,7 +16,9 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
         name = "level_get_info",
         description =
                 "Returns dynamic state of one dimension: time, weather, difficulty, default game mode,"
-                        + " spawn point.")
+                        + " spawn point. weather is the weather the server has set; rainLevel and"
+                        + " thunderLevel (0.0-1.0) are what the sky shows, which fades towards the"
+                        + " set weather over a few seconds after a change.")
 public final class LevelGetInfoTool extends BaseTool {
 
     private static final JsonNode SCHEMA =
