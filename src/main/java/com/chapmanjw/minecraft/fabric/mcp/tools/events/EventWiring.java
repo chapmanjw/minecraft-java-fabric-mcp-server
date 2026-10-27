@@ -74,6 +74,15 @@ public final class EventWiring {
                     payload.put("player_uuid", sender.getUUID().toString());
                     payload.put("name", sender.getName().getString());
                     payload.put("message", message.signedContent());
+                    // From Fabric API 0.157 (26.2+) CHAT_MESSAGE also fires for messages a player
+                    // sends through /say, /msg, /me and friends. The chat type tells those apart
+                    // from plain chat ("minecraft:chat").
+                    payload.put(
+                            "chat_type",
+                            params.chatType()
+                                    .unwrapKey()
+                                    .map(k -> k.identifier().toString())
+                                    .orElse(""));
                     bus.publish(EventEnvelope.now(EventType.PLAYER_CHAT, payload));
                 });
 
