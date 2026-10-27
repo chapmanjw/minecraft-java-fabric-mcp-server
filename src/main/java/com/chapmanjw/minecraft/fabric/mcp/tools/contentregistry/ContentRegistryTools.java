@@ -200,10 +200,12 @@ public final class ContentRegistryTools {
 
     @McpTool(
             name = "content_registry_set_compostable",
-            description =
-                    "Registers or overrides an item's composter level-up chance (0.0 to 1.0)."
-                            + " Not supported on Minecraft 26.3+, where compostability is the"
-                            + " item's compostable data component: returns failed there.",
+            description = "Registers or overrides an item's composter level-up chance (0.0 to 1.0).",
+            // 26.3 made compostability the item's compostable data component, fixed when items
+            // register, and Fabric API removed CompostableRegistry with it. Nothing can change it at
+            // runtime, so the tool is not offered there. "26.2.99" is the repo's "below the next
+            // minor" cap: atMost is an inclusive semver compare, so "26.2" would drop 26.2.1.
+            maxMinecraftVersion = "26.2.99",
             requiredFabricModules = {"fabric-content-registries-v0"})
     public static final class SetCompostable extends BaseTool {
         private static final JsonNode SCHEMA =

@@ -456,8 +456,8 @@ final class RegistryOps {
         }
         //? if mc_gte_26_3 {
         /*// 26.3 made compostability the item's COMPOSTABLE data component, fixed when items
-        // register, and Fabric API removed CompostableRegistry with it. There is no runtime
-        // mutator any more, so report "not supported" exactly as contentRegistrySetFuel does.
+        // register, and Fabric API removed CompostableRegistry with it. The tool is capped at
+        // 26.2.99 so it never reaches here; report "not supported" if anything else calls it.
         return false;
         *///?} else if mc_gte_26 {
         net.fabricmc.fabric.api.registry.CompostableRegistry.INSTANCE.add(item, chance);
