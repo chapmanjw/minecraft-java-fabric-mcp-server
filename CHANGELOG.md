@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-10-26
 
 Adds Minecraft 26.3 as a fifth build target, moves every target to its newest Fabric API, and adds
 two tools, one event type and several new tool fields. Minor rather than patch because some tools
