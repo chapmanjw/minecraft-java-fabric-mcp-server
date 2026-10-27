@@ -155,7 +155,7 @@ jobs:
         # v3, v3.3 and v3.3.1 all point at the same commit — so the previous floating "@v3.3"
         # silently moved to v3.3.1 and changed the action runtime from node16 to node24. Pin
         # explicitly so that kind of jump is a deliberate edit rather than a surprise.
-        uses: Kira-NT/mc-publish@v3.3.1
+        uses: Kira-NT/mc-publish@v3.3.2
         with:
           # Modrinth — permanent project id (survives slug renames; slug is fabric-api-mcp-server).
           modrinth-id: YCz65sD6
