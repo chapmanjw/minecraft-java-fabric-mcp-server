@@ -25,7 +25,9 @@ public final class ContentRegistryTools {
 
     @McpTool(
             name = "content_registry_get_fuel",
-            description = "Returns the burn time (ticks) for an item; 0 if the item is not a fuel.",
+            description =
+                    "Returns an item's burn time in ticks in a regular furnace; 0 if it is not a"
+                            + " fuel. Blast furnaces and smokers burn fuel twice as fast.",
             requiredFabricModules = {"fabric-content-registries-v0"})
     public static final class GetFuel extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -58,7 +60,8 @@ public final class ContentRegistryTools {
             name = "content_registry_set_fuel",
             description =
                     "Registers or overrides a fuel's burn time. NOTE: runtime mutation is not"
-                            + " supported in current Fabric — call is recorded but no-op.",
+                            + " supported (fuel is fixed at load time; on Minecraft 26.3+ it is"
+                            + " the item's cooking_fuel data component). Always returns failed.",
             requiredFabricModules = {"fabric-content-registries-v0"})
     public static final class SetFuel extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -163,7 +166,9 @@ public final class ContentRegistryTools {
 
     @McpTool(
             name = "content_registry_is_compostable",
-            description = "Returns the composter level-up chance for an item.",
+            description =
+                    "Returns the chance that one item adds a layer to a composter that already"
+                            + " holds compost. An empty composter always takes a layer.",
             requiredFabricModules = {"fabric-content-registries-v0"})
     public static final class IsCompostable extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -195,7 +200,10 @@ public final class ContentRegistryTools {
 
     @McpTool(
             name = "content_registry_set_compostable",
-            description = "Registers or overrides an item's composter level-up chance (0.0 to 1.0).",
+            description =
+                    "Registers or overrides an item's composter level-up chance (0.0 to 1.0)."
+                            + " Not supported on Minecraft 26.3+, where compostability is the"
+                            + " item's compostable data component: returns failed there.",
             requiredFabricModules = {"fabric-content-registries-v0"})
     public static final class SetCompostable extends BaseTool {
         private static final JsonNode SCHEMA =

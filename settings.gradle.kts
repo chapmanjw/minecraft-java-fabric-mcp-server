@@ -50,7 +50,7 @@ plugins {
 
 stonecutter {
     create(rootProject) {
-        versions("1.21.11", "26.1.1", "26.1.2", "26.2")
+        versions("1.21.11", "26.1.1", "26.1.2", "26.2", "26.3")
 
         // The version whose resolved source state is what lives in git. Kept at 26.1.2
         // rather than moved to 26.2: both resolve mc_gte_26 = true, so the committed

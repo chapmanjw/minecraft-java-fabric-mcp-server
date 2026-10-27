@@ -517,6 +517,18 @@ final class WorldOps {
         return out;
     }
 
+    /**
+     * The server's structure template manager. 26.3 renamed the accessor from
+     * getStructureManager() to getStructureTemplateManager(); same object, new name.
+     */
+    private StructureTemplateManager structureTemplateManager() {
+        //? if mc_gte_26_3 {
+        /*return ctx.requireServer().getStructureTemplateManager();
+        *///?} else {
+        return ctx.requireServer().getStructureManager();
+        //?}
+    }
+
     // =====================================================================
     // Structures — minimum viable subset for v0.1.0
     // =====================================================================
@@ -529,7 +541,7 @@ final class WorldOps {
         // structureFileWrite already does.
         try {
             ServerLevel level = ctx.requireLevel(dimensionId);
-            StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
+            StructureTemplateManager mgr = structureTemplateManager();
             Identifier id = AdapterContext.parseIdentifier(name);
             StructureTemplate template = mgr.getOrCreate(id);
             BlockPos origin = new BlockPos(box.x1(), box.y1(), box.z1());
@@ -580,7 +592,7 @@ final class WorldOps {
     }
 
     List<StructureInfo> structureList() {
-        StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
+        StructureTemplateManager mgr = structureTemplateManager();
         // listTemplates() only enumerates the in-memory / resource-manager templates (the
         // minecraft: namespace and loaded datapacks); it misses structures saved on disk under
         // generated/<namespace>/structures/ in custom namespaces (e.g. mcb:*) that have not been
@@ -600,7 +612,7 @@ final class WorldOps {
     }
 
     Optional<StructureInfo> structureGetInfo(String name) {
-        StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
+        StructureTemplateManager mgr = structureTemplateManager();
         Identifier id = AdapterContext.parseIdentifier(name);
         Optional<StructureTemplate> tpl = mgr.get(id);
         if (tpl.isEmpty()) {
@@ -624,7 +636,7 @@ final class WorldOps {
     }
 
     boolean structureDelete(String name) {
-        StructureTemplateManager mgr = ctx.requireServer().getStructureManager();
+        StructureTemplateManager mgr = structureTemplateManager();
         Identifier id = AdapterContext.parseIdentifier(name);
         // The underlying StructureTemplateManager.remove returns void and silently no-ops on
         // unknown ids, so callers were getting "deleted" even when no structure existed.

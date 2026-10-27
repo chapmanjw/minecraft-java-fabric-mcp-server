@@ -15,7 +15,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.context.ContextKeySet;
 import net.minecraft.util.context.ContextMap;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -237,7 +236,12 @@ final class RegistryOps {
         try {
             List<RecipeDisplay> displays = recipe.display();
             if (!displays.isEmpty()) {
-                ContextMap emptyContext = new ContextMap.Builder().create(new ContextKeySet.Builder().build());
+                //? if mc_gte_26_3 {
+                /*ContextMap emptyContext = ContextMap.EMPTY;
+                *///?} else {
+                ContextMap emptyContext = new ContextMap.Builder()
+                        .create(new net.minecraft.util.context.ContextKeySet.Builder().build());
+                //?}
                 var stack = displays.get(0).result().resolveForFirstStack(emptyContext);
                 if (stack != null && !stack.isEmpty()) {
                     Identifier itemId = ctx.requireServer()
@@ -349,9 +353,14 @@ final class RegistryOps {
         if (item == null) {
             return 0;
         }
+        //? if mc_gte_26_3 {
+        /*return furnaceBurnTicks(
+                ctx.requireServer().overworld(), new net.minecraft.world.item.ItemStack(item));
+        *///?} else {
         // FuelValues is part of vanilla; the Fabric module's BuildCallback merely
         // injects entries during build, so reading goes through the vanilla map.
         return ctx.requireServer().fuelValues().burnDuration(new net.minecraft.world.item.ItemStack(item));
+        //?}
     }
 
     boolean contentRegistrySetFuel(String itemId, int burnTimeTicks) {
@@ -422,7 +431,10 @@ final class RegistryOps {
         if (item == null) {
             return CompostableInfo.notCompostable();
         }
-        //? if mc_gte_26 {
+        //? if mc_gte_26_3 {
+        /*Float chance = compostChance(
+                ctx.requireServer().overworld(), new net.minecraft.world.item.ItemStack(item));
+        *///?} else if mc_gte_26 {
         Float chance =
                 net.fabricmc.fabric.api.registry.CompostableRegistry.INSTANCE.get(item);
         //?} else {
@@ -442,13 +454,141 @@ final class RegistryOps {
         if (item == null) {
             return false;
         }
-        //? if mc_gte_26 {
+        //? if mc_gte_26_3 {
+        /*// 26.3 made compostability the item's COMPOSTABLE data component, fixed when items
+        // register, and Fabric API removed CompostableRegistry with it. There is no runtime
+        // mutator any more, so report "not supported" exactly as contentRegistrySetFuel does.
+        return false;
+        *///?} else if mc_gte_26 {
         net.fabricmc.fabric.api.registry.CompostableRegistry.INSTANCE.add(item, chance);
+        return true;
         //?} else {
         /*net.fabricmc.fabric.api.registry.CompostingChanceRegistry.INSTANCE.add(item, chance);
-        *///?}
         return true;
+        *///?}
     }
+
+    //? if mc_gte_26_3 {
+    /*// 26.3 moved fuel and compostability onto items as the COOKING_FUEL and COMPOSTABLE data
+    // components. Their numbers are data-driven context_int_provider entries evaluated in a
+    // loot context, so a value is only defined relative to a block: blast furnaces and smokers
+    // halve burn time through the minecraft:block/fast_cooking predicate, and an empty composter
+    // always takes a layer. These helpers rebuild the exact contexts vanilla builds.
+
+    // Burn time in a plain furnace, the same figure FuelValues.burnDuration reported before 26.3.
+    // Mirrors BaseContainerBlockEntity.getLootContext: CONTAINER_PROCESS with the furnace's own
+    // state, block entity, origin and container. The block entity is detached; nothing touches
+    // the world.
+    private static int furnaceBurnTicks(ServerLevel level, net.minecraft.world.item.ItemStack stack) {
+        var state = net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState();
+        var furnace = new net.minecraft.world.level.block.entity.FurnaceBlockEntity(BlockPos.ZERO, state);
+        var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state)
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY, furnace)
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                        net.minecraft.world.phys.Vec3.atCenterOf(BlockPos.ZERO))
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.CONTAINER, furnace)
+                .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CONTAINER_PROCESS);
+        var lootContext =
+                new net.minecraft.world.level.storage.loot.LootContext.Builder(params).create(Optional.empty());
+        return net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.getFromItem(
+                stack,
+                net.minecraft.core.component.DataComponents.COOKING_FUEL,
+                net.minecraft.world.item.component.CookingFuel::burnTime,
+                lootContext,
+                0);
+    }
+
+    // Chance that one item raises a composter that already holds compost by a layer: the figure
+    // CompostableRegistry reported before 26.3. An empty composter is not the reference case
+    // because vanilla's providers always add a layer there. Returns null when the item has no
+    // COMPOSTABLE component. Exact for providers built from constants, weighted lists and
+    // dispatchers (all of vanilla's); anything else is estimated by seeded sampling.
+    private static Float compostChance(ServerLevel level, net.minecraft.world.item.ItemStack stack) {
+        var compostable = stack.get(net.minecraft.core.component.DataComponents.COMPOSTABLE);
+        if (compostable == null) {
+            return null;
+        }
+        var state = net.minecraft.world.level.block.Blocks.COMPOSTER
+                .defaultBlockState()
+                .setValue(net.minecraft.world.level.block.ComposterBlock.LEVEL, 1);
+        var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state)
+                .withParameter(
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
+                        net.minecraft.world.phys.Vec3.atCenterOf(BlockPos.ZERO))
+                .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.BLOCK_INTERACT);
+        var lootContext = new net.minecraft.world.level.storage.loot.LootContext.Builder(params)
+                .withOptionalRandomSeed(0L)
+                .create(Optional.empty());
+        var layers = compostable.layers();
+        Double exact = null;
+        if (layers instanceof net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.Constant c) {
+            exact = c.value() >= 1 ? 1.0 : 0.0;
+        } else if (layers
+                instanceof net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.Reference ref) {
+            // context_int_provider is a reloadable registry, absent from registryAccess(); resolve
+            // through the loot context exactly as ResolvableInt.Reference itself does.
+            exact = lootContext
+                    .getResolver()
+                    .get(ref.key())
+                    .map(h -> layerUpProbability(h.value(), lootContext, 0))
+                    .orElse(null);
+        }
+        if (exact == null) {
+            int hits = 0;
+            final int samples = 4096;
+            for (int i = 0; i < samples; i++) {
+                if (layers.get(lootContext, 0) >= 1) {
+                    hits++;
+                }
+            }
+            exact = hits / (double) samples;
+        }
+        return (float) exact.doubleValue();
+    }
+
+    // P(provider yields >= 1) in this context, or null when the provider is not a shape we can
+    // evaluate exactly. Depth-capped against reference cycles in data packs.
+    private static Double layerUpProbability(
+            net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProvider provider,
+            net.minecraft.world.level.storage.loot.LootContext lootContext,
+            int depth) {
+        if (depth > 16) {
+            return null;
+        }
+        if (provider instanceof net.minecraft.world.level.storage.loot.providers.number.ints.ConstantValue c) {
+            return c.value() >= 1 ? 1.0 : 0.0;
+        }
+        if (provider instanceof net.minecraft.world.level.storage.loot.providers.number.ints.NumberDispatcher d) {
+            for (var kase : d.cases()) {
+                if (kase.test(lootContext)) {
+                    return layerUpProbability(kase.value().value(), lootContext, depth + 1);
+                }
+            }
+            return layerUpProbability(d.defaultValue().value(), lootContext, depth + 1);
+        }
+        if (provider instanceof net.minecraft.world.level.storage.loot.providers.number.ints.WeightedListValue w) {
+            double total = 0;
+            double up = 0;
+            for (var entry : w.distribution().unwrap()) {
+                Double p = layerUpProbability(entry.value().value(), lootContext, depth + 1);
+                if (p == null) {
+                    return null;
+                }
+                total += entry.weight();
+                up += entry.weight() * p;
+            }
+            return total == 0 ? 0.0 : up / total;
+        }
+        return null;
+    }
+    *///?}
 
     // =====================================================================
     // Resource Conditions (Fabric)
@@ -489,12 +629,21 @@ final class RegistryOps {
     private net.minecraft.resources.RegistryOps.RegistryInfoLookup buildRegistryInfoLookup() {
         var access = ctx.requireServer().registryAccess();
         return new net.minecraft.resources.RegistryOps.RegistryInfoLookup() {
+            //? if mc_gte_26_3 {
+            /*// 26.3 dropped the RegistryInfo wrapper; the lookup now hands back the getter itself.
+            @Override
+            public <T> java.util.Optional<net.minecraft.core.HolderGetter<T>> lookup(
+                    ResourceKey<? extends net.minecraft.core.Registry<? extends T>> registryKey) {
+                return access.lookup(registryKey).map(r -> r);
+            }
+            *///?} else {
             @Override
             public <T> java.util.Optional<net.minecraft.resources.RegistryOps.RegistryInfo<T>> lookup(
                     ResourceKey<? extends net.minecraft.core.Registry<? extends T>> registryKey) {
                 return access.lookup(registryKey)
                         .map(net.minecraft.resources.RegistryOps.RegistryInfo::fromRegistryLookup);
             }
+            //?}
         };
     }
 

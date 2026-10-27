@@ -104,13 +104,21 @@ run {
     //
     // Compared on major/minor only, so 26.1.2 is correctly FALSE: its minor is 1, even
     // though its patch is 2. A naive string compare would get this wrong.
-    val mcGte262 = run {
+    fun mcAtLeast(wantMajor: Int, wantMinor: Int): Boolean {
         val parts = mcVersion.split(".")
         val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
         val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
-        major > 26 || (major == 26 && minor >= 2)
+        return major > wantMajor || (major == wantMajor && minor >= wantMinor)
     }
-    constPut?.invoke(constants, "mc_gte_26_2", mcGte262)
+    constPut?.invoke(constants, "mc_gte_26_2", mcAtLeast(26, 2))
+
+    // `mc_gte_26_3` -- true for Minecraft 26.3 and later. 26.3 made fuel and compostability
+    // item data components (COOKING_FUEL / COMPOSTABLE) whose values are data-driven
+    // context_int_provider entries, removing MinecraftServer.fuelValues() and Fabric's
+    // CompostableRegistry. It also renamed MinecraftServer.getStructureManager() to
+    // getStructureTemplateManager(), made the ContextMap.Builder constructor private, and
+    // removed RegistryOps.RegistryInfo (RegistryInfoLookup now returns a HolderGetter).
+    constPut?.invoke(constants, "mc_gte_26_3", mcAtLeast(26, 3))
 }
 
 // ---------------------------------------------------------------------------

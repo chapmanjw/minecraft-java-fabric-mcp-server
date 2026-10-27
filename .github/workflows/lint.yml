@@ -37,13 +37,17 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Spotless check (every Stonecutter target)
-        run: ./gradlew ":1.21.11:spotlessCheck" ":26.1.1:spotlessCheck" ":26.1.2:spotlessCheck"
+        run: |
+          ./gradlew ":1.21.11:spotlessCheck" ":26.1.1:spotlessCheck" ":26.1.2:spotlessCheck" \
+            ":26.2:spotlessCheck" ":26.3:spotlessCheck"
 
       - name: Checkstyle (every Stonecutter target)
         run: |
           ./gradlew ":1.21.11:checkstyleMain" ":1.21.11:checkstyleTest" \
             ":26.1.1:checkstyleMain" ":26.1.1:checkstyleTest" \
-            ":26.1.2:checkstyleMain" ":26.1.2:checkstyleTest"
+            ":26.1.2:checkstyleMain" ":26.1.2:checkstyleTest" \
+            ":26.2:checkstyleMain" ":26.2:checkstyleTest" \
+            ":26.3:checkstyleMain" ":26.3:checkstyleTest"
 
       - name: Verify required files exist
         run: |
@@ -61,6 +65,8 @@ jobs:
           test -f versions/1.21.11/build.gradle.kts
           test -f versions/26.1.1/build.gradle.kts
           test -f versions/26.1.2/build.gradle.kts
+          test -f versions/26.2/build.gradle.kts
+          test -f versions/26.3/build.gradle.kts
 
       - name: PowerShell scripts are ASCII-only
         # PowerShell 5.1 reads .ps1 files as Windows-1252 unless a UTF-8 BOM is
