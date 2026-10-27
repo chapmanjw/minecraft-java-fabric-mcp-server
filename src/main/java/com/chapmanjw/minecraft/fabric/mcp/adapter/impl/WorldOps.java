@@ -836,7 +836,18 @@ final class WorldOps {
     }
 
     boolean worldborderSetCenter(String dimensionId, double x, double z) {
-        return runInDim(dimensionId, "worldborder center " + cmdNum(x) + " " + cmdNum(z));
+        return runInDim(dimensionId, "worldborder center " + cmdCoord(x) + " " + cmdCoord(z));
+    }
+
+    /**
+     * A horizontal coordinate for a command that takes a Vec2 argument. Vanilla treats a bare
+     * integer there as a block position and centres it (+0.5), so "128" lands at 128.5 while
+     * "128.0" lands at 128. cmdNum strips the ".0", which put every whole-number world border
+     * centre half a block off; keep at least one decimal place.
+     */
+    private static String cmdCoord(double v) {
+        String s = cmdNum(v);
+        return s.contains(".") ? s : s + ".0";
     }
 
     boolean worldborderSetWarningBlocks(String dimensionId, int blocks) {
