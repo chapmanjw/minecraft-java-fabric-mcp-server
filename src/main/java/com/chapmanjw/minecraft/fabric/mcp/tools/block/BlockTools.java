@@ -1276,6 +1276,91 @@ public final class BlockTools {
     }
 
     // -------------------------------------------------------------------
+    // block_transform_preview
+    // -------------------------------------------------------------------
+    @McpTool(
+            name = "block_transform_preview",
+            description =
+                    "Previews what using a tool on the block at a position would turn it into, without"
+                            + " changing the world: stripping with an axe, scraping or un-waxing copper,"
+                            + " tilling with a hoe, flattening to a path with a shovel. Uses the game's own"
+                            + " rules, which can depend on the block above and on the face clicked."
+                            + " Args: dimension, position, tool (an item id such as minecraft:iron_axe;"
+                            + " any item with a block_transformer component works), optional face"
+                            + " (default up). Minecraft 26.3+.",
+            minMinecraftVersion = "26.3",
+            readOnly = true)
+    public static final class TransformPreview extends BaseTool {
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("dimension", Schemas.string("Dimension identifier"))
+                        .required(
+                                "position",
+                                Schemas.object()
+                                        .required("x", Schemas.integer("X"))
+                                        .required("y", Schemas.integer("Y"))
+                                        .required("z", Schemas.integer("Z"))
+                                        .build())
+                        .required("tool", Schemas.string("Item id of the tool, e.g. minecraft:iron_axe"))
+                        .optional(
+                                "face",
+                                Schemas.enumOf(
+                                        "Face the tool is used on (default up)",
+                                        "up",
+                                        "down",
+                                        "north",
+                                        "south",
+                                        "east",
+                                        "west"))
+                        .build();
+
+        public TransformPreview() {
+            super("block_transform_preview");
+        }
+
+        @Override
+        public JsonNode inputSchema() {
+            return SCHEMA;
+        }
+
+        @Override
+        public ToolResult execute(JsonNode arguments, ToolContext context) {
+            var r = reader(arguments);
+            String dim = r.requireString("dimension");
+            Vec3i pos = readVec3i(r.requireObject("position"));
+            String tool = r.requireString("tool");
+            String face = r.optString("face", "up");
+            return onMainThread(
+                    context,
+                    ignored -> {
+                        var p = context.adapter().blockTransformPreview(dim, pos, tool, face);
+                        ObjectNode payload = context.mapper().createObjectNode();
+                        payload.put("block", p.block());
+                        ObjectNode bp = payload.putObject("block_properties");
+                        p.blockProperties().forEach(bp::put);
+                        payload.put("tool", p.tool());
+                        payload.put("transformer", p.transformer());
+                        payload.put("matched", p.matched());
+                        if (p.matched()) {
+                            payload.put("result_block", p.resultBlock());
+                            ObjectNode rp = payload.putObject("result_properties");
+                            p.resultProperties().forEach(rp::put);
+                            payload.put("sound", p.sound());
+                            payload.put("transform_type", p.transformType());
+                            payload.put("consumes_item", p.consumesItem());
+                            payload.put("item_damage", p.itemDamage());
+                            if (!p.lootTable().isEmpty()) {
+                                payload.put("loot_table", p.lootTable());
+                            }
+                        } else {
+                            payload.put("face_blocked", p.faceBlocked());
+                        }
+                        return ToolResult.ofToon(payload);
+                    });
+        }
+    }
+
+    // -------------------------------------------------------------------
     // block_get_map_color
     // -------------------------------------------------------------------
     @McpTool(

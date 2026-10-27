@@ -427,6 +427,56 @@ final class PlayerOps {
         return Optional.of(ctx.toItemStackInfo(stack));
     }
 
+    /**
+     * The values of an item's data components, each encoded to JSON with the component type's
+     * own codec (the same form the game writes to disk). Keys are component ids in the stack's
+     * iteration order. A component with no persistent codec maps to {@code null}; one whose
+     * encode fails maps to an {@code {"error": ...}} object so a single bad component cannot
+     * hide the rest. Empty when the item id is unknown.
+     *
+     * @param only component ids to include; empty means all
+     */
+    Optional<java.util.Map<String, String>> itemStackComponentValues(ItemSpec spec, List<String> only) {
+        var registry = ctx.requireServer().registryAccess().lookupOrThrow(Registries.ITEM);
+        var holderOpt = registry.get(AdapterContext.parseIdentifier(spec.id()));
+        if (holderOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        var stack = new net.minecraft.world.item.ItemStack(holderOpt.get(), spec.count());
+        var ops = net.minecraft.resources.RegistryOps.create(
+                com.mojang.serialization.JsonOps.INSTANCE, ctx.requireServer().registryAccess());
+        java.util.Set<String> wanted = new java.util.HashSet<>();
+        for (String id : only) {
+            wanted.add(AdapterContext.parseIdentifier(id).toString());
+        }
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        for (var typed : stack.getComponents()) {
+            Identifier key =
+                    net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(typed.type());
+            String id = key == null ? typed.type().toString() : key.toString();
+            if (!wanted.isEmpty() && !wanted.contains(id)) {
+                continue;
+            }
+            if (typed.type().codec() == null) {
+                out.put(id, null);
+                continue;
+            }
+            var encoded = typed.encodeValue(ops);
+            out.put(
+                    id,
+                    encoded.result()
+                            .map(com.google.gson.JsonElement::toString)
+                            .orElseGet(() -> {
+                                var obj = new com.google.gson.JsonObject();
+                                obj.addProperty(
+                                        "error",
+                                        encoded.error().map(e -> e.message()).orElse("encode failed"));
+                                return obj.toString();
+                            }));
+        }
+        return Optional.of(out);
+    }
+
     boolean itemStackDropAt(String dimensionId, Vec3d position, ItemSpec spec) {
         // Use /summon item with Item tag.
         String snbt =

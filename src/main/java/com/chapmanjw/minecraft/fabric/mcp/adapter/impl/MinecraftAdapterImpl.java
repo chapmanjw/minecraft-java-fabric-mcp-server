@@ -661,6 +661,23 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     }
 
     @Override
+    public List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.MobSpawnEntry> levelGetMobSpawns(
+            String dimensionId, Vec3i position, String category) {
+        return worldOps.levelGetMobSpawns(dimensionId, position, category);
+    }
+
+    @Override
+    public com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockTransformPreview blockTransformPreview(
+            String dimensionId, Vec3i position, String toolItem, String face) {
+        return blockOps.blockTransformPreview(dimensionId, position, toolItem, face);
+    }
+
+    @Override
+    public Optional<java.util.Map<String, String>> itemStackComponentValues(ItemSpec spec, List<String> only) {
+        return playerOps.itemStackComponentValues(spec, only);
+    }
+
+    @Override
     public boolean itemStackDropAt(String dimensionId, Vec3d position, ItemSpec spec) {
         return playerOps.itemStackDropAt(dimensionId, position, spec);
     }

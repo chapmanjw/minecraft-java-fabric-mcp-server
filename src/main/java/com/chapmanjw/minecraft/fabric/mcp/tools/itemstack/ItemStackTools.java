@@ -1,6 +1,9 @@
 package com.chapmanjw.minecraft.fabric.mcp.tools.itemstack;
 
+import java.util.List;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.ItemSpec;
 import com.chapmanjw.minecraft.fabric.mcp.adapter.dto.ItemStackInfo;
@@ -31,9 +34,26 @@ public final class ItemStackTools {
             name = "itemstack_describe",
             description =
                     "Returns what an ItemStack would look like — max stack size, max durability, etc."
-                            + " Validates that the item id exists.")
+                            + " Validates that the item id exists. componentKeys lists the item's data"
+                            + " components; pass include_values=true to also get each component's"
+                            + " value as JSON (the form the game saves), optionally narrowed with"
+                            + " component_filter. Values can be large, so ask only when needed.")
     public static final class Describe extends BaseTool {
-        private static final JsonNode SCHEMA = itemSpecSchema();
+        private static final JsonNode SCHEMA =
+                Schemas.object()
+                        .required("id", Schemas.string("Item id"))
+                        .optional("count", Schemas.integer("Count (default 1)"))
+                        .optional("components", Schemas.string("Components SNBT"))
+                        .optional(
+                                "include_values",
+                                Schemas.bool("Also return component values as JSON (default false)"))
+                        .optional(
+                                "component_filter",
+                                Schemas.arrayOf(
+                                        "Only these component ids, e.g. [\"minecraft:cooking_fuel\"];"
+                                                + " implies include_values",
+                                        Schemas.string()))
+                        .build();
 
         public Describe() {
             super("itemstack_describe");
@@ -51,6 +71,14 @@ public final class ItemStackTools {
             int count = r.optInt("count", 1);
             String comps = r.optString("components", null);
             ItemSpec spec = new ItemSpec(id, count, comps);
+            List<String> filter = new java.util.ArrayList<>();
+            JsonNode filterNode = r.optArray("component_filter");
+            if (filterNode != null) {
+                for (JsonNode f : filterNode) {
+                    filter.add(f.asText());
+                }
+            }
+            boolean includeValues = r.optBoolean("include_values", false) || !filter.isEmpty();
             return onMainThread(
                     context,
                     ignored -> {
@@ -62,7 +90,23 @@ public final class ItemStackTools {
                                                         new McpException(
                                                                 ErrorCodes.TOOL_HANDLER_ERROR,
                                                                 "Unknown item: " + id));
-                        return ToolResult.ofToon(Jsons.itemStack(context.mapper(), info));
+                        ObjectNode out = Jsons.itemStack(context.mapper(), info);
+                        if (includeValues) {
+                            ObjectNode values = out.putObject("components");
+                            var raw = context.adapter().itemStackComponentValues(spec, filter).orElseThrow();
+                            for (var e : raw.entrySet()) {
+                                if (e.getValue() == null) {
+                                    values.putNull(e.getKey());
+                                } else {
+                                    try {
+                                        values.set(e.getKey(), context.mapper().readTree(e.getValue()));
+                                    } catch (java.io.IOException io) {
+                                        values.put(e.getKey(), e.getValue());
+                                    }
+                                }
+                            }
+                        }
+                        return ToolResult.ofToon(out);
                     });
         }
     }

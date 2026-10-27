@@ -42,6 +42,7 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelLightningStrikeTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListBiomesInDimensionTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListDimensionsTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelListGameRulesTool;
+import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelGetMobSpawnsTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaceFeatureTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaceFeaturesBatchTool;
 import com.chapmanjw.minecraft.fabric.mcp.tools.level.LevelPlaySoundTool;
@@ -112,6 +113,7 @@ public final class ToolRegistration {
                     LevelPoiQueryTool.class,
                     LevelListBiomesInDimensionTool.class,
                     LevelPlaceFeatureTool.class,
+                    LevelGetMobSpawnsTool.class,
                     LevelPlaceFeaturesBatchTool.class,
                     LevelFillBiomeTool.class,
                     // block
@@ -131,6 +133,7 @@ public final class ToolRegistration {
                     BlockTools.HydraulicErodeResult.class,
                     BlockTools.ScanSummary.class,
                     BlockTools.GetMapColor.class,
+                    BlockTools.TransformPreview.class,
                     BlockTools.RenderRegion.class,
                     // block entity
                     BlockEntityTools.GetNbt.class,

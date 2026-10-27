@@ -1130,4 +1130,105 @@ final class BlockOps {
         }
         return block.defaultBlockState();
     }
+
+    /**
+     * What the item {@code toolItem} would turn the block at a position into when used on face
+     * {@code face}, mirroring vanilla BlockTransformer.transformBlock: transforms are tried in
+     * order, one whose disallowed faces include the clicked face is skipped, and the first whose
+     * state provider yields a state wins. Reads only: the provider is evaluated against the live
+     * level with its own seeded random, and nothing is written.
+     */
+    com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockTransformPreview blockTransformPreview(
+            String dimensionId, Vec3i position, String toolItem, String face) {
+        //? if mc_gte_26_3 {
+        /*ServerLevel level = ctx.requireLevel(dimensionId);
+        BlockPos pos = new BlockPos(position.x(), position.y(), position.z());
+        BlockState current = level.getBlockState(pos);
+        var itemHolder = level.registryAccess()
+                .lookupOrThrow(Registries.ITEM)
+                .get(AdapterContext.parseIdentifier(toolItem))
+                .orElseThrow(() -> new AdapterException("Unknown item: " + toolItem));
+        var stack = new net.minecraft.world.item.ItemStack(itemHolder);
+        var transformer = stack.get(net.minecraft.core.component.DataComponents.BLOCK_TRANSFORMER);
+        if (transformer == null) {
+            throw new AdapterException(
+                    toolItem + " has no block_transformer component, so using it does not transform blocks");
+        }
+        String transformerId =
+                transformer.unwrapKey().map(k -> k.identifier().toString()).orElse("(inline)");
+        net.minecraft.core.Direction clicked = parseFace(face);
+        var random = net.minecraft.util.RandomSource.create(0L);
+        boolean faceBlocked = false;
+        for (var data : transformer.value().transforms()) {
+            if (data.disallowedFaces().contains(clicked)) {
+                faceBlocked = true;
+                continue;
+            }
+            BlockState next = data.blockStateProvider().value().getOptionalState(level, random, pos);
+            if (next == null) {
+                continue;
+            }
+            if (data.updateFromNeighbors()) {
+                next = net.minecraft.world.level.block.Block.updateFromNeighbourShapes(next, level, pos);
+            }
+            return new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockTransformPreview(
+                    blockId(level, current),
+                    stateProperties(current),
+                    toolItem,
+                    transformerId,
+                    true,
+                    false,
+                    blockId(level, next),
+                    stateProperties(next),
+                    data.sound().unwrapKey().map(k -> k.identifier().toString()).orElse(""),
+                    data.transformType().getSerializedName(),
+                    // Vanilla consumes a STACKABLE item (when consumeOnUse is set) and damages any
+                    // other: an axe loses durability and is never used up; wax is used up.
+                    stack.isStackable() && data.consumeOnUse(),
+                    stack.isStackable() ? 0 : data.itemDamagePerUse(),
+                    data.loot().map(k -> k.identifier().toString()).orElse(""));
+        }
+        return new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockTransformPreview(
+                blockId(level, current),
+                stateProperties(current),
+                toolItem,
+                transformerId,
+                false,
+                faceBlocked,
+                null,
+                null,
+                "",
+                "",
+                false,
+                0,
+                "");
+        *///?} else {
+        throw new AdapterException(
+                "block_transform_preview needs Minecraft 26.3 or later, where block transformers are data");
+        //?}
+    }
+
+    //? if mc_gte_26_3 {
+    /*private static String blockId(ServerLevel level, BlockState state) {
+        Identifier id = level.registryAccess().lookupOrThrow(Registries.BLOCK).getKey(state.getBlock());
+        return id == null ? "minecraft:air" : id.toString();
+    }
+
+    private static Map<String, String> stateProperties(BlockState state) {
+        Map<String, String> props = new java.util.LinkedHashMap<>();
+        state.getValues().forEach(v -> props.put(v.property().getName(), v.value().toString()));
+        return props;
+    }
+
+    private static net.minecraft.core.Direction parseFace(String face) {
+        if (face == null || face.isBlank()) {
+            return net.minecraft.core.Direction.UP;
+        }
+        var dir = net.minecraft.core.Direction.byName(face.toLowerCase(java.util.Locale.ROOT));
+        if (dir == null) {
+            throw new AdapterException("Unknown face: " + face + " (use up, down, north, south, east or west)");
+        }
+        return dir;
+    }
+    *///?}
 }

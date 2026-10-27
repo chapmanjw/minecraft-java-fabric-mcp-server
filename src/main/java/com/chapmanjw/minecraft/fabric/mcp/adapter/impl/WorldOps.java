@@ -946,4 +946,59 @@ final class WorldOps {
                                 com.chapmanjw.minecraft.fabric.mcp.adapter.dto.PoiInfo::type));
         return out;
     }
+
+    /**
+     * The natural-spawn lists the game would use at a position, one entry per mob type, by asking
+     * the chunk generator exactly as NaturalSpawner does. That includes structure spawn overrides
+     * (a witch hut's witches, a fortress's blazes), not just the biome's own list. On 26.3 the
+     * biome's list is the minecraft:gameplay/natural_mob_spawns environment attribute, which
+     * getMobsAt resolves for the position.
+     *
+     * @param category mob category name to restrict to, or null for all
+     */
+    java.util.List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.MobSpawnEntry> levelGetMobSpawns(
+            String dimensionId, Vec3i position, String category) {
+        ServerLevel level = ctx.requireLevel(dimensionId);
+        BlockPos pos = new BlockPos(position.x(), position.y(), position.z());
+        var generator = level.getChunkSource().getGenerator();
+        var types = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENTITY_TYPE);
+        java.util.List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.MobSpawnEntry> out = new java.util.ArrayList<>();
+        boolean known = category == null;
+        for (var cat : net.minecraft.world.entity.MobCategory.values()) {
+            if (category != null && !cat.getSerializedName().equalsIgnoreCase(category)) {
+                continue;
+            }
+            known = true;
+            //? if mc_gte_26_3 {
+            /*var list = generator.getMobsAt(level, level.structureManager(), cat, pos);
+            *///?} else {
+            var list = generator.getMobsAt(level.getBiome(pos), level.structureManager(), cat, pos);
+            //?}
+            for (var weighted : list.unwrap()) {
+                var data = weighted.value();
+                Identifier id = types.getKey(data.type());
+                //? if mc_gte_26_3 {
+                /*int min = data.count().minInclusive();
+                int max = data.count().maxInclusive();
+                *///?} else {
+                int min = data.minCount();
+                int max = data.maxCount();
+                //?}
+                out.add(new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.MobSpawnEntry(
+                        cat.getSerializedName(),
+                        id == null ? "unknown" : id.toString(),
+                        weighted.weight(),
+                        min,
+                        max));
+            }
+        }
+        if (!known) {
+            StringBuilder names = new StringBuilder();
+            for (var cat : net.minecraft.world.entity.MobCategory.values()) {
+                names.append(names.length() == 0 ? "" : ", ").append(cat.getSerializedName());
+            }
+            throw new AdapterException("Unknown mob category: " + category + " (use one of " + names + ")");
+        }
+        return out;
+    }
 }

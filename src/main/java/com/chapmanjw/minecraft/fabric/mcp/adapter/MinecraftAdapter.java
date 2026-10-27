@@ -504,6 +504,22 @@ public interface MinecraftAdapter {
 
     Optional<ItemStackInfo> itemStackDescribe(ItemSpec spec);
 
+    /** Natural-spawn entries at a position, including structure overrides; category null = all. */
+    List<com.chapmanjw.minecraft.fabric.mcp.adapter.dto.MobSpawnEntry> levelGetMobSpawns(
+            String dimensionId, Vec3i position, String category);
+
+    /** What using {@code toolItem} on the block at a position would produce (26.3+). */
+    com.chapmanjw.minecraft.fabric.mcp.adapter.dto.BlockTransformPreview blockTransformPreview(
+            String dimensionId, Vec3i position, String toolItem, String face);
+
+    /**
+     * Data component values of an item, as component id to JSON text (encoded with each
+     * component's codec). A component with no persistent codec maps to {@code null}.
+     *
+     * @param only component ids to include; empty means all
+     */
+    Optional<java.util.Map<String, String>> itemStackComponentValues(ItemSpec spec, List<String> only);
+
     boolean itemStackDropAt(String dimensionId, Vec3d position, ItemSpec spec);
 
     // =====================================================================
