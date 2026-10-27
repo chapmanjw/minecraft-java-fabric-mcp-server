@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - Unreleased
+
+Adds Minecraft 26.3 as a fifth build target and moves every target to its newest Fabric API.
+Minor rather than patch because three tools now behave differently in ways a caller can notice
+(see "Changed").
+
+### Changed — read before upgrading
+
+- `content_registry_set_compostable` returns `failed` on 26.3. Minecraft 26.3 made compostability
+  the item's `compostable` data component, fixed when items register, and Fabric API removed
+  `CompostableRegistry` along with it, so there is nothing to call at runtime. Earlier targets are
+  unchanged. `content_registry_set_fuel` already returned `failed` everywhere and still does.
+- `player.chat` events now carry a `chat_type` field. From Fabric API 0.157 (on the 26.2 and 26.3
+  targets) the chat event also fires for messages players send through `/say`, `/msg`, `/me` and
+  similar commands, so a 26.2 or 26.3 server delivers events that earlier pins did not. Filter on
+  `{"chat_type": "minecraft:chat"}` for plain chat only.
+- `level_get_weather` and the `weather` field of `level_get_info` read the weather state instead
+  of the rain and thunder levels. Those levels ramp by 0.01 per tick, so a read straight after
+  `level_set_weather` reported the previous weather for about a second (rain) or four and a half
+  seconds (thunder), and `level_get_info` paired that stale label with the new spell's countdown.
+  Affects every target.
+- Each jar now requires the Fabric API it was built against or newer: `0.141.6+1.21.11`,
+  `0.145.4+26.1.1`, `0.155.3+26.1.2`, `0.161.0+26.2`, `0.165.0+26.3`. Fabric Loader stays 0.19.3.
+
+### Added
+
+- Minecraft 26.3 target: `versions/26.3/`, Fabric API 0.165.0+26.3, unobfuscated mappings, JDK 25,
+  registered in the build, release, lint and Dependabot configuration. Built with the existing Loom
+  1.16-SNAPSHOT.
+- `mc_gte_26_3` Stonecutter constant for what 26.3 changed: `MinecraftServer.fuelValues()` and
+  Fabric's `CompostableRegistry` were removed in favour of the `cooking_fuel` and `compostable` item
+  components, `getStructureManager()` became `getStructureTemplateManager()`, the
+  `ContextMap.Builder` constructor went private, and `RegistryOps.RegistryInfo` was removed.
+- `content_registry_get_fuel` and `content_registry_is_compostable` on 26.3 evaluate the new
+  components in the contexts vanilla builds (a furnace; a composter that already holds compost),
+  so they report the same numbers as earlier targets. Verified live: coal 1600 ticks (matching a
+  real furnace's `lit_total_time`), and compost tiers 0.3 / 0.5 / 0.65 / 0.85 / 1.0.
+- MCP tool annotations and titles in `tools/list`. Without an `annotations` object every MCP
+  client assumes each tool may be destructive and open-world. `readOnlyHint`, `destructiveHint`,
+  `idempotentHint` and `openWorldHint` now come from each tool's access level, and each tool gets a
+  human-readable `title`.
+
+### Fixed — found by live testing on 26.3
+
+- `content_registry_is_compostable` threw "Missing registry: minecraft:context_int_provider" on
+  26.3. That registry is reloadable and absent from the server's static registry access; the
+  provider is now resolved through the loot context, as vanilla does.
+- The stale weather read described under "Changed".
+
+### Notes
+
+- Fluid storage: from Fabric API 0.156 (26.2 and 26.3) an empty tank reports its real capacity
+  instead of air's. An empty cauldron reads `capacity_droplets: 81000`.
+- 26.3 data changes that reach callers are listed in
+  [docs/version-compatibility.md](docs/version-compatibility.md#runtime-data-differences-what-compiling-cannot-catch),
+  including the `convertable_to_mud` tag rename and `white-list=true` on newly created servers.
+- `scripts/deploy-mod.ps1` now finds the built jar under any `versions/<mc>/build/libs`.
+
 ## [1.1.0] - 2026-07-26
 
 Adds Minecraft **26.2** as a fourth build target and moves every existing target to

@@ -39,7 +39,7 @@ render-checked, then materialized into the world through `block_fill_batch` and
 verified with `block_render_region`.*
 
 The mod ships separate jars for each supported Minecraft version. The build matrix is
-**1.21.11**, **26.1.1**, **26.1.2**, and **26.2**.
+**1.21.11**, **26.1.1**, **26.1.2**, **26.2**, and **26.3**.
 
 ### Two endpoints: world + inspection
 
@@ -134,7 +134,7 @@ vanilla world to confirm the install works.
 ### 3. Install Fabric Loader
 
 Download the [Fabric Loader installer](https://fabricmc.net/use/installer/) and run it. Pick the
-Minecraft version you want (one of **1.21.11**, **26.1.1**, **26.1.2**, or **26.2** — the versions this mod
+Minecraft version you want (one of **1.21.11**, **26.1.1**, **26.1.2**, **26.2**, or **26.3** — the versions this mod
 ships jars for) and click Install. The installer registers a new "fabric-loader-…" profile in the
 Minecraft Launcher and creates a `mods/` folder under your game directory.
 
@@ -464,8 +464,9 @@ The mod ships **one jar per Minecraft version**. The build matrix:
 | 26.1.1    | 25           | unobfuscated    | `+26.1.1`      |
 | 26.1.2    | 25           | unobfuscated    | `+26.1.2`      |
 | 26.2      | 25           | unobfuscated    | `+26.2`        |
+| 26.3      | 25           | unobfuscated    | `+26.3`        |
 
-`./gradlew chiseledBuild` produces all four jars in one invocation. Each Stonecutter version
+`./gradlew chiseledBuild` produces all five jars in one invocation. Each Stonecutter version
 subproject has its own `versions/<ver>/build.gradle.kts` because the Fabric Loom plugin ID
 differs across Minecraft versions (legacy `fabric-loom` for 1.21.x; `net.fabricmc.fabric-loom`
 LoomNoRemap variant for 26.1+).

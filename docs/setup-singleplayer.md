@@ -18,7 +18,7 @@ token configuration and no firewall changes.
 
 Download the official installer from <https://fabricmc.net/use/installer/> and run it from the
 command line, replacing `<version>` with your target Minecraft version (`1.21.11`, `26.1.1`,
-`26.1.2`, or `26.2`):
+`26.1.2`, `26.2`, or `26.3`):
 
 **macOS:**
 ```sh
@@ -64,8 +64,8 @@ mods/
 Both `<mc-version>` suffixes must be the SAME and must match your game. The mod jar declares
 an exact `depends.minecraft`, so a mismatched pair is refused at load with a clear message.
 The Fabric API build must also be at least the one the mod was built against — see the
-matrix in [version-compatibility.md](version-compatibility.md), currently `0.141.5+1.21.11`,
-`0.145.4+26.1.1`, `0.155.2+26.1.2` and `0.155.2+26.2`.
+matrix in [version-compatibility.md](version-compatibility.md), currently `0.141.6+1.21.11`,
+`0.145.4+26.1.1`, `0.155.3+26.1.2`, `0.161.0+26.2` and `0.165.0+26.3`.
 
 ## Step 3 — Launch the game with Fabric
 

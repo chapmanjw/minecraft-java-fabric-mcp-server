@@ -68,7 +68,7 @@ everything below.
 
 | Module | Used by |
 | --- | --- |
-| `fabric-content-registries-v0` | `content_registry_get_fuel` / `content_registry_set_fuel` (read-only on current Fabric) / `content_registry_is_flammable_block` / `content_registry_set_flammable_block` / `content_registry_is_compostable` / `content_registry_set_compostable`. |
+| `fabric-content-registries-v0` | `content_registry_get_fuel` / `content_registry_set_fuel` (read-only on every target; on 26.3 fuel and compost are item data components and only flammability still goes through this module) / `content_registry_is_flammable_block` / `content_registry_set_flammable_block` / `content_registry_is_compostable` / `content_registry_set_compostable`. |
 | `fabric-loot-api-v3` | `loot_table_*` tools. |
 | `fabric-recipe-api-v1` | `recipe_*` tools. |
 | `fabric-registry-sync-v0` | Internal — registry access for tag tools. |
@@ -103,18 +103,19 @@ The following modules / helpers were removed in Minecraft 26.1.x and are NOT in 
 
 ## Cross-version availability summary
 
-| Module | 1.21.11 | 26.1.1 | 26.1.2 | 26.2 |
-| --- | --- | --- | --- | --- |
-| `fabric-lifecycle-events-v1` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-command-api-v1` | ✅ (deprecated) | ❌ | ❌ | ❌ |
-| `fabric-command-api-v2` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-biome-api-v1` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-data-attachment-api-v1` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-loot-api-v3` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-recipe-api-v1` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-particles-v1` | ✅ | ✅ | ✅ | ✅ |
-| `fabric-message-api-v1` | ✅ | ✅ | ✅ | ✅ |
-| `TradeOfferHelper` (utility) | ✅ | ❌ | ❌ | ❌ |
+| Module | 1.21.11 | 26.1.1 | 26.1.2 | 26.2 | 26.3 |
+| --- | --- | --- | --- | --- | --- |
+| `fabric-lifecycle-events-v1` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-command-api-v1` | ✅ (deprecated) | ❌ | ❌ | ❌ | ❌ |
+| `fabric-command-api-v2` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-biome-api-v1` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-data-attachment-api-v1` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-loot-api-v3` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-recipe-api-v1` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-particles-v1` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `fabric-message-api-v1` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `TradeOfferHelper` (utility) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `CompostableRegistry` / fuel events (`fabric-content-registries-v0`) | ✅ | ✅ | ✅ | ✅ | ❌ (item data components; see [version-compatibility.md](version-compatibility.md#runtime-data-differences-what-compiling-cannot-catch)) |
 
 A tool whose `@McpTool` annotation lists a module that isn't loaded simply doesn't register — see
 [docs/version-compatibility.md](version-compatibility.md) for how the filter works at runtime.

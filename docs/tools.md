@@ -214,15 +214,17 @@ Eleven tools wrapping the vanilla `/bossbar` command surface plus a direct read 
 
 ## Content Registry
 
-Read and (mostly) write access to Fabric's content registries for fuel values, fire
-behaviour, and composter chance.
+Read and (mostly) write access to fuel values, fire behaviour, and composter chance. On
+Minecraft 26.3 fuel and compostability are item data components (`cooking_fuel`, `compostable`)
+rather than Fabric registries; the read tools evaluate them the way vanilla does and report the
+same numbers as earlier targets.
 
 | Name | Description | Modules |
 | --- | --- | --- |
-| `content_registry_get_fuel` | Read a fuel's burn-duration in ticks (0 = not fuel). | `fabric-content-registries-v0` |
+| `content_registry_get_fuel` | Read a fuel's burn time in ticks in a regular furnace (0 = not fuel). Blast furnaces and smokers burn twice as fast. | `fabric-content-registries-v0` |
 | `content_registry_set_fuel` | Stubbed — Fabric exposes fuel registration only via build-time events. | `fabric-content-registries-v0` |
 | `content_registry_is_flammable_block` / `content_registry_set_flammable_block` | Read or override per-block burn / spread chances. | `fabric-content-registries-v0` |
-| `content_registry_is_compostable` / `content_registry_set_compostable` | Read or override composter level-up chance. | `fabric-content-registries-v0` |
+| `content_registry_is_compostable` / `content_registry_set_compostable` | Read or override the chance one item adds a layer to a composter that already holds compost. The setter returns `failed` on 26.3, where compostability is fixed per item. | `fabric-content-registries-v0` |
 
 ## Fluid Storage
 
@@ -314,6 +316,12 @@ payload. Example: subscribe to chat messages from one player only:
 
 Filters use direct `JsonNode.equals` semantics — typed values must match exactly. Use no filters
 to receive all events of the subscribed types.
+
+`player.chat` payloads carry `player_uuid`, `name`, `message` and `chat_type`. On 26.2 and 26.3,
+Fabric API also fires the chat event for messages a player sends through `/say`, `/msg`, `/me` and
+similar commands; `chat_type` tells them apart (`minecraft:chat` for plain chat,
+`minecraft:say_command` and so on for the rest). To receive plain chat only, filter on
+`{"chat_type": "minecraft:chat"}`.
 
 ## Client (inspection — `minecraft-java-client` server only)
 

@@ -82,18 +82,22 @@ evaluator:
 ```kotlin
 stonecutter.constants.put("mc_gte_26", mcVersion.startsWith("26.") || mcVersion.startsWith("27."))
 
-// mc_gte_26_2 -- true for 26.2 and later.
-val parts = mcVersion.split(".")
-val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
-val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
-stonecutter.constants.put("mc_gte_26_2", major > 26 || (major == 26 && minor >= 2))
+// Numeric major/minor comparison shared by the version gates.
+fun mcAtLeast(wantMajor: Int, wantMinor: Int): Boolean { /* splits mcVersion on "." */ }
+stonecutter.constants.put("mc_gte_26_2", mcAtLeast(26, 2))
+stonecutter.constants.put("mc_gte_26_3", mcAtLeast(26, 3))
 ```
 
 `mc_gte_26_2` gates the API changes 26.2 introduced: the `EntityType.<NAME>` constants moved to a
 new `EntityTypes` class, `Team.getColor()` began returning `Optional<TeamColor>`, and three client
 symbols changed (see [version-compatibility.md](version-compatibility.md#client-inspection-tools-client-category)).
 
-Note it compares **major and minor only**, so `26.1.2` is correctly `false` — its minor is 1, even
+`mc_gte_26_3` gates what 26.3 changed: fuel and compostability became the `cooking_fuel` and
+`compostable` item data components (removing `MinecraftServer.fuelValues()` and Fabric's
+`CompostableRegistry`), `getStructureManager()` became `getStructureTemplateManager()`, the
+`ContextMap.Builder` constructor went private, and `RegistryOps.RegistryInfo` was removed.
+
+Note the gates compare **major and minor only**, so `26.1.2` is correctly `false` — its minor is 1, even
 though its patch is 2. A string comparison would get that wrong.
 
 Stonecutter pre-processes the `src/main/java` tree per subproject, materializing the active

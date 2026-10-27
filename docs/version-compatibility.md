@@ -4,20 +4,26 @@ The mod ships **one jar per supported Minecraft version**, built from a single s
 [Stonecutter](https://stonecutter.kikugie.dev). Each jar is paired with the matching Fabric API
 and Fabric Loader versions; using mismatched dependencies is unsupported.
 
-## Supported build matrix (v1.0.1)
+## Supported build matrix (v1.2.0)
 
 | Minecraft | Fabric Loader | Fabric API           | Mappings        | JDK | Loom plugin ID                  |
 | --------- | ------------- | -------------------- | --------------- | --- | ------------------------------- |
-| 1.21.11   | 0.19.3        | 0.141.5+1.21.11      | Mojang official | 21  | `fabric-loom` (LoomGradlePlugin)         |
+| 1.21.11   | 0.19.3        | 0.141.6+1.21.11      | Mojang official | 21  | `fabric-loom` (LoomGradlePlugin)         |
 | 26.1.1    | 0.19.3        | 0.145.4+26.1.1       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
-| 26.1.2    | 0.19.3        | 0.155.2+26.1.2       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
-| 26.2      | 0.19.3        | 0.155.2+26.2         | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.1.2    | 0.19.3        | 0.155.3+26.1.2       | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.2      | 0.19.3        | 0.161.0+26.2         | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
+| 26.3      | 0.19.3        | 0.165.0+26.3         | unobfuscated    | 25  | `net.fabricmc.fabric-loom` (LoomNoRemap) |
 
-Each jar declares `depends.minecraft` as the **exact** version it was built against — the 26.2 jar
-is `"26.2"`, not `">=26.2"` — so Fabric Loader accepts it on that version and refuses it anywhere
+Each jar declares `depends.minecraft` as the **exact** version it was built against — the 26.3 jar
+is `"26.3"`, not `">=26.3"` — so Fabric Loader accepts it on that version and refuses it anywhere
 else. Download the jar whose `+suffix` matches your game; installing the wrong one fails at load
 with a clear message rather than at runtime on a missing symbol. The targets are deliberately not
-interchangeable: 26.2 removed API that 26.1.x has, and 1.21.11 predates the 26 API surface entirely.
+interchangeable: 26.3 removed API that 26.2 has, 26.2 removed API that 26.1.x has, and 1.21.11
+predates the 26 API surface entirely.
+
+Every target shares one Fabric Loader (0.19.3) and one Loom (1.16-SNAPSHOT); only Fabric API is
+pinned per Minecraft line, because each Fabric API build accepts exactly one (`0.165.0+26.3`
+declares `minecraft: ~26.3-`). Each jar also requires *at least* the Fabric API it was built against.
 
 The three architectural seams are:
 
@@ -113,6 +119,28 @@ The mod hardcodes no tag or game-rule ids: `tag_*` and `level_*_game_rule` pass 
 running game defines. So these are not mod bugs, and there is nothing to gate. They matter to
 *callers*, which must not assume an id seen on one version exists on another.
 
+26.3 changed, found by diffing `data/minecraft/` between the 26.2 and 26.3 jars:
+
+| Data | 26.2 | 26.3 |
+| --- | --- | --- |
+| block tag `minecraft:convertable_to_mud` | present | **renamed** to `minecraft:convertible_to_mud` |
+| block tags `nether_carver_replaceables`, `overworld_carver_replaceables` | present | **removed** |
+| item tag `minecraft:brewing_fuel` | present | **removed** (brewing fuel is the `brewing_fuel` item component) |
+| structure tags `on_*_explorer_maps`, `on_trial_chambers_maps` | present | **removed** |
+| tags added | | 38 block, 13 item (incl. `concrete_slabs`, `concrete_stairs`, `ores`), 4 fluid, 4 potion, 37 worldgen |
+| new data registries | | `context_int_provider`, `context_float_provider`, `block_transformer`, `predicate`, `decorated_pot_pattern` |
+| game rules | | `projectiles_can_break_blocks` added; nothing renamed or removed |
+| new server `server.properties` | `white-list=false` | `white-list=true` by default for a *new* server (an existing file keeps its value) |
+
+**Fuel and compostability became data in 26.3.** They are now the `cooking_fuel` and `compostable`
+item data components, whose numbers are `context_int_provider` entries evaluated against a block:
+blast furnaces and smokers halve burn time through the `minecraft:block/fast_cooking` predicate, and
+an empty composter always takes a layer. Fabric API removed `CompostableRegistry` and the fuel events
+with it. `content_registry_get_fuel` and `content_registry_is_compostable` evaluate the components in
+the same context vanilla uses (a furnace; a composter that already holds compost), so they report the
+same numbers as on 26.2. `content_registry_set_compostable` has no runtime mutator to call on 26.3 and
+returns `failed` there, as `content_registry_set_fuel` always has.
+
 When adding a Minecraft target, check at minimum: block/item tag ids the build workflows reference,
 game-rule ids, registry key names in `Registries` / `BuiltInRegistries`, and command syntax used by
 anything routed through `command_execute`. Diff the extracted server jar's `data/minecraft/tags/`
@@ -122,14 +150,15 @@ tree between the old and new target — that is how the concrete-powder rename a
 
 The complete cross-version matrix lives in [docs/tools.md](tools.md). High-level summary:
 
-| Feature | 1.21.11 | 26.1.1 | 26.1.2 | 26.2 |
-| --- | --- | --- | --- | --- |
-| All core tools (server, level, block, entity, player, …) | ✅ | ✅ | ✅ | ✅ |
-| `level_get_biome_at`, `level_list_biomes_in_dimension` | ✅ (requires `fabric-biome-api-v1`) | ✅ | ✅ | ✅ |
-| `data_attachment_*` | ✅ (requires `fabric-data-attachment-api-v1`) | ✅ | ✅ | ✅ |
-| `loot_table_*` | ✅ (requires `fabric-loot-api-v3`) | ✅ | ✅ | ✅ |
-| `recipe_*` | ✅ (requires `fabric-recipe-api-v1`) | ✅ | ✅ | ✅ |
-| Trading-related tools (planned) | ✅ (via `TradeOfferHelper`) | 🚧 (data-driven trades only) | 🚧 | 🚧 |
+| Feature | 1.21.11 | 26.1.1 | 26.1.2 | 26.2 | 26.3 |
+| --- | --- | --- | --- | --- | --- |
+| All core tools (server, level, block, entity, player, …) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `level_get_biome_at`, `level_list_biomes_in_dimension` | ✅ (requires `fabric-biome-api-v1`) | ✅ | ✅ | ✅ | ✅ |
+| `data_attachment_*` | ✅ (requires `fabric-data-attachment-api-v1`) | ✅ | ✅ | ✅ | ✅ |
+| `loot_table_*` | ✅ (requires `fabric-loot-api-v3`) | ✅ | ✅ | ✅ | ✅ |
+| `recipe_*` | ✅ (requires `fabric-recipe-api-v1`) | ✅ | ✅ | ✅ | ✅ |
+| `content_registry_set_compostable` | ✅ | ✅ | ✅ | ✅ | returns `failed` (compostability is an item component) |
+| Trading-related tools (planned) | ✅ (via `TradeOfferHelper`) | 🚧 (data-driven trades only) | 🚧 | 🚧 | 🚧 |
 
 A tool whose registration is conditional on a Fabric API module simply doesn't appear in `tools/list`
 when that module is missing — there's no error path the client has to handle.
@@ -140,9 +169,9 @@ The `client` category (`view_capture`, `sense_*`, `client_status`) is served onl
 entrypoint (`McpClientMod`) running inside a real client — see
 [architecture.md](architecture.md#client-entrypoint-mcpclientmod-and-the-clientaccess-seam) and
 [configuration.md](configuration.md#two-mcp-servers-world--inspection). It carries no per-version
-`@McpTool` constraints — every client tool is present on every client target, including 26.2.
+`@McpTool` constraints — every client tool is present on every client target, including 26.2 and 26.3.
 
-The load-bearing capture facts hold on all four targets: the only capture entry point is the
+The load-bearing capture facts hold on all five targets: the only capture entry point is the
 callback form `Screenshot.takeScreenshot(RenderTarget, [int downScale,] Consumer<NativeImage>)`
 (there is no `NativeImage`-returning overload), and `NativeImage` has no in-memory byte export —
 only `writeToFile(File/Path)` — so `view_capture` round-trips a temp PNG.
@@ -174,6 +203,10 @@ path. The 26.1.x branch is guarded by `mc.screen != null` and the 26.2 branch by
 
 Note also that `setScreenAndShow` renders an extra out-of-band frame that plain `setScreen` did not.
 
+**26.3 changed none of these.** Every client symbol the 26.2 branch uses resolves unchanged against
+the 26.3 client jar (checked by resolving each constant-pool reference in the built mod jar), so 26.3
+takes the `mc_gte_26_2` branch with no new split.
+
 All client coupling stays localized in `adapter.client.ClientAccessImpl` behind the stable
 `ClientAccess` interface, gated with the `mc_gte_26_2` Stonecutter constant. Targets at or below
 26.1.x keep the original field reads unchanged.
@@ -197,15 +230,24 @@ The intended workflow:
 2. Add the directory to the `directories` list in `.github/dependabot.yml`. A version directory
    Dependabot is not pointed at goes unwatched, and its plugin pins drift silently.
 3. Add the version to the matrices in `.github/workflows/build.yml` AND
-   `.github/workflows/release.yml`.
+   `.github/workflows/release.yml`, and to the Spotless and Checkstyle task lists in
+   `.github/workflows/lint.yml` (that list had fallen two targets behind before 26.3).
 4. Run `./gradlew chiseledBuild` and fix any Stonecutter-block divergences. Add a new constant only
    when an existing one cannot express the split; compare major/minor numerically rather than by
-   string (see `mc_gte_26_2`).
+   string (`mcAtLeast(major, minor)` in `mod-build.gradle.kts`, used by `mc_gte_26_2` and
+   `mc_gte_26_3`). Then resolve every Minecraft and Fabric API reference in the previous target's
+   built jar against the new target's jars: that catches breaks in source sets javac stopped
+   before reaching.
 5. **Do the runtime-data pass.** The build passing proves only source compatibility. Diff the
    extracted server jar's `data/minecraft/tags/` tree against the previous target, and check
    game-rule ids and registry key names. See "Runtime data differences" above — a tag rename or a
    game-rule rename changes what tools return with nothing to compile against.
-6. **Check the client surface separately.** `src/client/` is a different source set; a target can
+6. **Check semantics, not just names.** A value can keep its name while its meaning moves: 26.3 made
+   burn time depend on the furnace type and compost chance depend on the composter's fill level.
+   Read the new code path and compare the numbers live.
+7. **Check the client surface separately.** `src/client/` is a different source set; a target can
    build while the client module does not. Verify `view_capture` and every `sense_*` tool.
-7. Update this document, the README version tables, `docs/fabric-api-modules.md`, and the setup
+8. Run the live battery on the new target (blank flat world, see `scripts/deploy-mod.ps1`). The 26.3
+   battery found two defects the unit suite passed.
+9. Update this document, the README version tables, `docs/fabric-api-modules.md`, and the setup
    guides.
