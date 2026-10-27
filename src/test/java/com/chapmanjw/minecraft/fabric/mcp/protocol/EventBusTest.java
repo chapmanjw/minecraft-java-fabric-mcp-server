@@ -150,4 +150,83 @@ class EventBusTest {
         bus.publish(EventEnvelope.now(EventType.SERVER_STOPPED, null));
         assertEquals(0, s.bufferSize());
     }
+
+    private static ObjectNode flow(String dim, int x, int y, int z) {
+        ObjectNode n = JsonNodeFactory.instance.objectNode();
+        n.put("dimension", dim);
+        n.put("x", x);
+        n.put("y", y);
+        n.put("z", z);
+        return n;
+    }
+
+    @Test
+    void hasSubscribersTracksSubscribeAndUnsubscribe() {
+        EventBus bus = new EventBus(16);
+        assertFalse(bus.hasSubscribers(EventType.FLUID_FLOW));
+        String a = bus.subscribe(EnumSet.of(EventType.FLUID_FLOW, EventType.SERVER_TICK), null);
+        String b = bus.subscribe(EnumSet.of(EventType.FLUID_FLOW), null);
+        assertTrue(bus.hasSubscribers(EventType.FLUID_FLOW));
+        assertTrue(bus.hasSubscribers(EventType.SERVER_TICK));
+        bus.unsubscribe(a);
+        assertTrue(bus.hasSubscribers(EventType.FLUID_FLOW));
+        assertFalse(bus.hasSubscribers(EventType.SERVER_TICK));
+        bus.unsubscribe(b);
+        assertFalse(bus.hasSubscribers(EventType.FLUID_FLOW));
+        // A second unsubscribe of the same id must not drive the count negative.
+        bus.unsubscribe(b);
+        bus.subscribe(EnumSet.of(EventType.FLUID_FLOW), null);
+        assertTrue(bus.hasSubscribers(EventType.FLUID_FLOW));
+    }
+
+    @Test
+    void regionGateDeliversOnlyInsideItsBoxAndDimension() {
+        EventBus bus = new EventBus(16);
+        var gate = new EventBus.RegionGate(
+                EventType.FLUID_FLOW, "minecraft:overworld", 10, 60, 10, 0, 70, 0, 1000);
+        String id = bus.subscribe(EnumSet.of(EventType.FLUID_FLOW), Map.of(), gate);
+        assertTrue(bus.anyRegionContains(EventType.FLUID_FLOW, "minecraft:overworld", 5, 65, 5));
+        assertFalse(bus.anyRegionContains(EventType.FLUID_FLOW, "minecraft:overworld", 11, 65, 5));
+        assertFalse(bus.anyRegionContains(EventType.FLUID_FLOW, "minecraft:the_nether", 5, 65, 5));
+        bus.publish(EventEnvelope.now(EventType.FLUID_FLOW, flow("minecraft:overworld", 0, 60, 10)));
+        bus.publish(EventEnvelope.now(EventType.FLUID_FLOW, flow("minecraft:overworld", 10, 71, 10)));
+        bus.publish(EventEnvelope.now(EventType.FLUID_FLOW, flow("minecraft:the_nether", 5, 65, 5)));
+        assertEquals(1, bus.get(id).orElseThrow().bufferSize());
+    }
+
+    @Test
+    void regionGateRateLimitsAndCountsWhatItDrops() {
+        EventBus bus = new EventBus(64);
+        var gate = new EventBus.RegionGate(
+                EventType.FLUID_FLOW, "minecraft:overworld", 0, 0, 0, 100, 100, 100, 5);
+        String id = bus.subscribe(EnumSet.of(EventType.FLUID_FLOW), Map.of(), gate);
+        for (int i = 0; i < 20; i++) {
+            bus.publish(EventEnvelope.now(EventType.FLUID_FLOW, flow("minecraft:overworld", 1, 1, 1)));
+        }
+        EventBus.Subscription s = bus.get(id).orElseThrow();
+        // Burst capacity equals the per-second rate; a 20-event burst well inside one second
+        // delivers about 5 and counts the rest.
+        assertTrue(s.bufferSize() >= 5 && s.bufferSize() <= 6, "delivered " + s.bufferSize());
+        assertEquals(20 - s.bufferSize(), s.rateLimitedCount());
+    }
+
+    @Test
+    void regionGateLeavesOtherTypesInTheSameSubscriptionAlone() {
+        EventBus bus = new EventBus(16);
+        var gate = new EventBus.RegionGate(
+                EventType.FLUID_FLOW, "minecraft:overworld", 0, 0, 0, 1, 1, 1, 1);
+        String id = bus.subscribe(EnumSet.of(EventType.FLUID_FLOW, EventType.SERVER_TICK), Map.of(), gate);
+        for (int i = 0; i < 3; i++) {
+            bus.publish(EventEnvelope.now(EventType.SERVER_TICK, null));
+        }
+        assertEquals(3, bus.get(id).orElseThrow().bufferSize());
+        assertEquals(0L, bus.get(id).orElseThrow().rateLimitedCount());
+    }
+
+    @Test
+    void regionGateRejectsNonPositiveRate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EventBus.RegionGate(EventType.FLUID_FLOW, "d", 0, 0, 0, 1, 1, 1, 0));
+    }
 }

@@ -61,6 +61,58 @@ public final class EventsTools {
         return set;
     }
 
+    /** Upper bound for filters.max_per_second on fluid.flow. */
+    static final int MAX_FLUID_FLOW_PER_SECOND = 1000;
+
+    /** Default fluid.flow rate when filters.max_per_second is omitted. */
+    static final int DEFAULT_FLUID_FLOW_PER_SECOND = 20;
+
+    static EventBus.RegionGate parseRegion(JsonNode region, JsonNode rate) {
+        if (region == null || !region.isObject()) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "events_subscribe: fluid.flow fires on every fluid flow or update, so it needs"
+                            + " filters.region = {dimension, from:{x,y,z}, to:{x,y,z}}");
+        }
+        JsonNode dim = region.get("dimension");
+        JsonNode from = region.get("from");
+        JsonNode to = region.get("to");
+        if (dim == null || !dim.isTextual() || !isXyz(from) || !isXyz(to)) {
+            throw new McpException(
+                    ErrorCodes.TOOL_INPUT_INVALID,
+                    "events_subscribe: filters.region needs dimension (string) and from/to objects"
+                            + " with integer x, y and z");
+        }
+        int perSecond = DEFAULT_FLUID_FLOW_PER_SECOND;
+        if (rate != null) {
+            if (!rate.canConvertToInt() || rate.asInt() < 1 || rate.asInt() > MAX_FLUID_FLOW_PER_SECOND) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "events_subscribe: filters.max_per_second must be an integer from 1 to "
+                                + MAX_FLUID_FLOW_PER_SECOND);
+            }
+            perSecond = rate.asInt();
+        }
+        return new EventBus.RegionGate(
+                EventType.FLUID_FLOW,
+                dim.asText(),
+                from.get("x").asInt(),
+                from.get("y").asInt(),
+                from.get("z").asInt(),
+                to.get("x").asInt(),
+                to.get("y").asInt(),
+                to.get("z").asInt(),
+                perSecond);
+    }
+
+    private static boolean isXyz(JsonNode n) {
+        return n != null
+                && n.isObject()
+                && n.path("x").canConvertToInt()
+                && n.path("y").canConvertToInt()
+                && n.path("z").canConvertToInt();
+    }
+
     private static ObjectNode toJson(ObjectNode dest, EventBus.Subscription s) {
         dest.put("subscription_id", s.id());
         ArrayNode types = dest.putArray("event_types");
@@ -73,6 +125,22 @@ public final class EventsTools {
         }
         dest.put("buffer_size", s.bufferSize());
         dest.put("dropped_count", s.droppedCount());
+        if (s.region() != null) {
+            ObjectNode region = dest.putObject("region");
+            s.region().describe().forEach((k, v) -> {
+                if (v instanceof int[] xyz) {
+                    ObjectNode c = region.putObject(k);
+                    c.put("x", xyz[0]);
+                    c.put("y", xyz[1]);
+                    c.put("z", xyz[2]);
+                } else if (v instanceof Integer i) {
+                    region.put(k, i);
+                } else {
+                    region.put(k, String.valueOf(v));
+                }
+            });
+            dest.put("rate_limited_count", s.rateLimitedCount());
+        }
         return dest;
     }
 
@@ -80,7 +148,12 @@ public final class EventsTools {
             name = "events_subscribe",
             description =
                     "Registers a subscription for one or more event types with optional filters."
-                            + " Returns an opaque subscription_id for events_poll / events_unsubscribe.",
+                            + " Returns an opaque subscription_id for events_poll / events_unsubscribe."
+                            + " filters is an exact-match map on payload fields. fluid.flow (Minecraft"
+                            + " 26.2+) fires each time a fluid flows or is updated at a position (one"
+                            + " water source produces hundreds a second), so it requires filters.region ="
+                            + " {dimension, from:{x,y,z}, to:{x,y,z}} and is rate-limited by"
+                            + " filters.max_per_second (default 20, max 1000).",
             requiredFabricModules = {
                     "fabric-lifecycle-events-v1",
                     "fabric-message-api-v1",
@@ -121,7 +194,20 @@ public final class EventsTools {
             if (f != null) {
                 f.properties().forEach(e -> filters.put(e.getKey(), e.getValue()));
             }
-            String id = context.eventBus().subscribe(types, filters);
+            // region / max_per_second configure the fluid.flow gate; they are not payload fields,
+            // so they must not reach the exact-match filter map.
+            JsonNode regionNode = filters.remove("region");
+            JsonNode rateNode = filters.remove("max_per_second");
+            EventBus.RegionGate gate = null;
+            if (types.contains(EventType.FLUID_FLOW)) {
+                gate = parseRegion(regionNode, rateNode);
+            } else if (regionNode != null || rateNode != null) {
+                throw new McpException(
+                        ErrorCodes.TOOL_INPUT_INVALID,
+                        "events_subscribe: filters.region and filters.max_per_second apply only to"
+                                + " fluid.flow");
+            }
+            String id = context.eventBus().subscribe(types, filters, gate);
             ObjectNode result = context.mapper().createObjectNode();
             result.put("subscription_id", id);
             return ToolResult.ofToon(result);
@@ -173,6 +259,9 @@ public final class EventsTools {
             }
             payload.put("dropped_count", sub.droppedCount());
             payload.put("buffer_size", sub.bufferSize());
+            if (sub.region() != null) {
+                payload.put("rate_limited_count", sub.rateLimitedCount());
+            }
             return ToolResult.ofToon(payload);
         }
     }

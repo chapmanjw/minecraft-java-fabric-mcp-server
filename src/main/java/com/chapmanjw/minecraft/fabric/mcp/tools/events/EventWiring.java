@@ -117,6 +117,10 @@ public final class EventWiring {
                     return net.minecraft.world.InteractionResult.PASS;
                 });
 
+        //? if mc_gte_26_2 {
+        /*installFluidFlow(bus, mapper);
+        *///?}
+
         LOGGER.info("EventWiring installed — Minecraft events will be routed to the MCP event bus");
     }
 
@@ -128,8 +132,10 @@ public final class EventWiring {
      * events_subscribe reject it up front instead. Keep it in sync with install() -- if you wire a
      * new event, add it here, and the subscribe path starts accepting it.
      */
-    private static final java.util.EnumSet<EventType> WIRED =
-            java.util.EnumSet.of(
+    private static final java.util.EnumSet<EventType> WIRED = wiredTypes();
+
+    private static java.util.EnumSet<EventType> wiredTypes() {
+        java.util.EnumSet<EventType> wired = java.util.EnumSet.of(
                     EventType.SERVER_TICK,
                     EventType.SERVER_STARTING,
                     EventType.SERVER_STARTED,
@@ -140,6 +146,47 @@ public final class EventWiring {
                     EventType.PLAYER_CHAT,
                     EventType.BLOCK_BREAK,
                     EventType.BLOCK_USE);
+        //? if mc_gte_26_2 {
+        /*wired.add(EventType.FLUID_FLOW);
+        *///?}
+        return wired;
+    }
+
+    //? if mc_gte_26_2 {
+    /*// Fabric's FluidFlowEvents.ALLOW (fabric-block-api-v1 3.1, Fabric API 0.160+) runs whenever any
+    // fluid tries to flow or gets a neighbour update -- one of the hottest paths in the server. The
+    // listener therefore always allows the flow, costs one array read while nobody subscribes,
+    // ignores worldgen regions (anything that is not a live ServerLevel), checks the subscribers'
+    // boxes before building a payload, and swallows its own errors so it can never break fluid
+    // ticking.
+    private static void installFluidFlow(EventBus bus, ObjectMapper mapper) {
+        net.fabricmc.fabric.api.block.v1.FluidFlowEvents.ALLOW.register((fluid, level, pos) -> {
+            if (!bus.hasSubscribers(EventType.FLUID_FLOW)
+                    || !(level instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
+                return true;
+            }
+            try {
+                String dim = serverLevel.dimension().identifier().toString();
+                if (!bus.anyRegionContains(EventType.FLUID_FLOW, dim, pos.getX(), pos.getY(), pos.getZ())) {
+                    return true;
+                }
+                ObjectNode payload = mapper.createObjectNode();
+                payload.put("dimension", dim);
+                payload.put("x", pos.getX());
+                payload.put("y", pos.getY());
+                payload.put("z", pos.getZ());
+                var fluidId = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid.getType());
+                payload.put("fluid", fluidId == null ? "unknown" : fluidId.toString());
+                payload.put("source", fluid.isSource());
+                payload.put("amount", fluid.getAmount());
+                bus.publish(EventEnvelope.now(EventType.FLUID_FLOW, payload));
+            } catch (RuntimeException e) {
+                LOGGER.debug("fluid.flow event dropped: {}", e.toString());
+            }
+            return true;
+        });
+    }
+    *///?}
 
     /** True when this server actually emits the given event type. */
     public static boolean isWired(EventType type) {

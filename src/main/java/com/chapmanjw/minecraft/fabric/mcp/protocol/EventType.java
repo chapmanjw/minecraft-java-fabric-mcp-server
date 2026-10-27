@@ -36,7 +36,9 @@ public enum EventType {
     ITEM_CRAFT("item.craft"),
 
     CONTAINER_OPEN("container.open"),
-    CONTAINER_CLOSE("container.close");
+    CONTAINER_CLOSE("container.close"),
+    /** A fluid flowing into a block. Minecraft 26.2+ only; needs a region filter. */
+    FLUID_FLOW("fluid.flow");
 
     private final String wireName;
 
