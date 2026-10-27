@@ -101,8 +101,7 @@ final class WorldOps {
         try {
             ServerLevel level = ctx.requireLevel(dimensionId);
             BlockPos spawn = level.getRespawnData().pos();
-            String weather =
-                    level.isThundering() ? "thunder" : (level.isRaining() ? "rain" : "clear");
+            String weather = weatherOf(level);
             // Which countdown is meaningful depends on what the weather currently IS. While a
             // clear spell is locked in, vanilla's advanceWeatherCycle pins rainTime to 1 or 2 every
             // tick (it only decrements clearWeatherTime), so reporting rainTime made a 12000-tick
@@ -174,8 +173,28 @@ final class WorldOps {
     }
 
     String levelGetWeather(String dimensionId) {
-        ServerLevel level = ctx.requireLevel(dimensionId);
-        return level.isThundering() ? "thunder" : (level.isRaining() ? "rain" : "clear");
+        return weatherOf(ctx.requireLevel(dimensionId));
+    }
+
+    /**
+     * The weather a dimension is in, from the weather STATE flags. Level.isRaining() and
+     * isThundering() compare the visual rain/thunder levels against thresholds, and those levels
+     * ramp by 0.01 per tick: after /weather rain they read clear for about 20 ticks, and thunder
+     * reads as rain for about 90. A read straight after a set therefore reported the previous
+     * weather, and level_get_info paired that stale label with the countdown of the new spell.
+     * Dimensions without weather (the nether, the end) stay clear, as they always reported.
+     */
+    private static String weatherOf(ServerLevel level) {
+        if (!level.canHaveWeather()) {
+            return "clear";
+        }
+        //? if mc_gte_26 {
+        var data = level.getWeatherData();
+        //?} else {
+        /*var data = level.getLevelData();
+        *///?}
+        boolean raining = data.isRaining();
+        return raining && data.isThundering() ? "thunder" : (raining ? "rain" : "clear");
     }
 
     void levelSetWeather(String dimensionId, String weather, int durationTicks) {
