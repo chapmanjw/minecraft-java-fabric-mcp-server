@@ -26,8 +26,11 @@ public final class ContentRegistryTools {
     @McpTool(
             name = "content_registry_get_fuel",
             description =
-                    "Returns an item's burn time in ticks in a regular furnace; 0 if it is not a"
-                            + " fuel. Blast furnaces and smokers burn fuel twice as fast.",
+                    "Returns how an item behaves as fuel: burn_time_ticks in a regular furnace and"
+                            + " burn_time_ticks_fast in a blast furnace or smoker (0 = not fuel),"
+                            + " speed_multiplier (cooking speed-up; always 1.0 before 26.3), and"
+                            + " brewing_fuel_uses (brews per item in a brewing stand; 0 = not"
+                            + " brewing fuel).",
             requiredFabricModules = {"fabric-content-registries-v0"})
     public static final class GetFuel extends BaseTool {
         private static final JsonNode SCHEMA =
@@ -48,9 +51,12 @@ public final class ContentRegistryTools {
             return onMainThread(
                     context,
                     ignored -> {
-                        int burn = context.adapter().contentRegistryGetFuel(id);
+                        var fuel = context.adapter().contentRegistryGetFuel(id);
                         ObjectNode n = context.mapper().createObjectNode();
-                        n.put("burn_time_ticks", burn);
+                        n.put("burn_time_ticks", fuel.burnTimeTicks());
+                        n.put("burn_time_ticks_fast", fuel.burnTimeTicksFast());
+                        n.put("speed_multiplier", fuel.speedMultiplier());
+                        n.put("brewing_fuel_uses", fuel.brewingFuelUses());
                         return ToolResult.ofToon(n);
                     });
         }

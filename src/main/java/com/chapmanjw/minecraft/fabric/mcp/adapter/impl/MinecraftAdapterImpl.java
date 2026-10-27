@@ -958,7 +958,7 @@ public final class MinecraftAdapterImpl implements MinecraftAdapter {
     // =====================================================================
 
     @Override
-    public int contentRegistryGetFuel(String itemId) {
+    public com.chapmanjw.minecraft.fabric.mcp.adapter.dto.FuelInfo contentRegistryGetFuel(String itemId) {
         return registryOps.contentRegistryGetFuel(itemId);
     }
 

@@ -346,20 +346,67 @@ final class RegistryOps {
     // Content Registry (Fabric) — fuel / flammable / compostable
     // =====================================================================
 
-    int contentRegistryGetFuel(String itemId) {
+    com.chapmanjw.minecraft.fabric.mcp.adapter.dto.FuelInfo contentRegistryGetFuel(String itemId) {
         Identifier rl = AdapterContext.parseIdentifier(itemId);
         var itemRegistry = ctx.requireServer().registryAccess().lookupOrThrow(Registries.ITEM);
         var item = itemRegistry.getValue(rl);
         if (item == null) {
-            return 0;
+            return new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.FuelInfo(0, 0, 1.0f, 0);
         }
+        var stack = new net.minecraft.world.item.ItemStack(item);
         //? if mc_gte_26_3 {
-        /*return furnaceBurnTicks(
-                ctx.requireServer().overworld(), new net.minecraft.world.item.ItemStack(item));
+        /*// Each value is evaluated in the context of the block that would burn or brew it.
+        ServerLevel level = ctx.requireServer().overworld();
+        var furnaceState = net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState();
+        var furnace = containerContext(
+                level,
+                furnaceState,
+                new net.minecraft.world.level.block.entity.FurnaceBlockEntity(BlockPos.ZERO, furnaceState));
+        var blastState = net.minecraft.world.level.block.Blocks.BLAST_FURNACE.defaultBlockState();
+        var blast = containerContext(
+                level,
+                blastState,
+                new net.minecraft.world.level.block.entity.BlastFurnaceBlockEntity(BlockPos.ZERO, blastState));
+        var standState = net.minecraft.world.level.block.Blocks.BREWING_STAND.defaultBlockState();
+        var stand = containerContext(
+                level,
+                standState,
+                new net.minecraft.world.level.block.entity.BrewingStandBlockEntity(BlockPos.ZERO, standState));
+        return new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.FuelInfo(
+                net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.getFromItem(
+                        stack,
+                        net.minecraft.core.component.DataComponents.COOKING_FUEL,
+                        net.minecraft.world.item.component.CookingFuel::burnTime,
+                        furnace,
+                        0),
+                net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.getFromItem(
+                        stack,
+                        net.minecraft.core.component.DataComponents.COOKING_FUEL,
+                        net.minecraft.world.item.component.CookingFuel::burnTime,
+                        blast,
+                        0),
+                net.minecraft.world.level.storage.loot.providers.number.floats.ResolvableFloat.getFromItem(
+                        stack,
+                        net.minecraft.core.component.DataComponents.COOKING_FUEL,
+                        net.minecraft.world.item.component.CookingFuel::speedMultiplier,
+                        furnace,
+                        1.0f),
+                net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.getFromItem(
+                        stack,
+                        net.minecraft.core.component.DataComponents.BREWING_FUEL,
+                        net.minecraft.world.item.component.BrewingFuel::uses,
+                        stand,
+                        0));
         *///?} else {
         // FuelValues is part of vanilla; the Fabric module's BuildCallback merely
-        // injects entries during build, so reading goes through the vanilla map.
-        return ctx.requireServer().fuelValues().burnDuration(new net.minecraft.world.item.ItemStack(item));
+        // injects entries during build, so reading goes through the vanilla map. Blast furnaces
+        // and smokers return half of it (AbstractFurnaceBlockEntity.getBurnDuration / 2), and
+        // brewing fuel is the #brewing_fuel tag at a fixed BrewingStandBlockEntity.FUEL_USES.
+        int burn = ctx.requireServer().fuelValues().burnDuration(stack);
+        int brewing = stack.is(net.minecraft.tags.ItemTags.BREWING_FUEL)
+                ? net.minecraft.world.level.block.entity.BrewingStandBlockEntity.FUEL_USES
+                : 0;
+        return new com.chapmanjw.minecraft.fabric.mcp.adapter.dto.FuelInfo(burn, burn / 2, 1.0f, brewing);
         //?}
     }
 
@@ -475,32 +522,25 @@ final class RegistryOps {
     // halve burn time through the minecraft:block/fast_cooking predicate, and an empty composter
     // always takes a layer. These helpers rebuild the exact contexts vanilla builds.
 
-    // Burn time in a plain furnace, the same figure FuelValues.burnDuration reported before 26.3.
-    // Mirrors BaseContainerBlockEntity.getLootContext: CONTAINER_PROCESS with the furnace's own
-    // state, block entity, origin and container. The block entity is detached; nothing touches
-    // the world.
-    private static int furnaceBurnTicks(ServerLevel level, net.minecraft.world.item.ItemStack stack) {
-        var state = net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState();
-        var furnace = new net.minecraft.world.level.block.entity.FurnaceBlockEntity(BlockPos.ZERO, state);
+    // The loot context a container block entity evaluates fuel in. Mirrors
+    // BaseContainerBlockEntity.getLootContext: CONTAINER_PROCESS with the block's own state, block
+    // entity, origin and container. The block entity is detached; nothing touches the world.
+    private static net.minecraft.world.level.storage.loot.LootContext containerContext(
+            ServerLevel level,
+            net.minecraft.world.level.block.state.BlockState state,
+            net.minecraft.world.level.block.entity.BaseContainerBlockEntity container) {
         var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
                 .withParameter(
                         net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_STATE, state)
                 .withParameter(
-                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY, furnace)
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY, container)
                 .withParameter(
                         net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN,
                         net.minecraft.world.phys.Vec3.atCenterOf(BlockPos.ZERO))
                 .withParameter(
-                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.CONTAINER, furnace)
+                        net.minecraft.world.level.storage.loot.parameters.LootContextParams.CONTAINER, container)
                 .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CONTAINER_PROCESS);
-        var lootContext =
-                new net.minecraft.world.level.storage.loot.LootContext.Builder(params).create(Optional.empty());
-        return net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt.getFromItem(
-                stack,
-                net.minecraft.core.component.DataComponents.COOKING_FUEL,
-                net.minecraft.world.item.component.CookingFuel::burnTime,
-                lootContext,
-                0);
+        return new net.minecraft.world.level.storage.loot.LootContext.Builder(params).create(Optional.empty());
     }
 
     // Chance that one item raises a composter that already holds compost by a layer: the figure

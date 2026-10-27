@@ -670,7 +670,7 @@ public interface MinecraftAdapter {
     // Content Registry (Fabric)
     // =====================================================================
 
-    int contentRegistryGetFuel(String itemId);
+    com.chapmanjw.minecraft.fabric.mcp.adapter.dto.FuelInfo contentRegistryGetFuel(String itemId);
 
     boolean contentRegistrySetFuel(String itemId, int burnTimeTicks);
 
