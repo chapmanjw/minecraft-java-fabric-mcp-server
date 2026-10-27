@@ -36,8 +36,9 @@ import com.chapmanjw.minecraft.fabric.mcp.tools.annotations.McpTool;
                 "Grows many vanilla worldgen features in ONE call (batch level_place_feature) —"
                         + " the throughput path for vegetation/detail scatter. Args: dimension,"
                         + " features[] of {feature, x, y, z}, optional stop_on_error. Each feature is a"
-                        + " configured-feature id (e.g. minecraft:fancy_oak, minecraft:spruce). Capped at"
-                        + " 4096 entries/call; tile larger scatters.")
+                        + " configured-feature id (e.g. minecraft:fancy_oak, minecraft:spruce); on"
+                        + " Minecraft 26.3+ an entry may give definition (inline configured-feature JSON)"
+                        + " instead. Capped at 4096 entries/call; tile larger scatters.")
 public final class LevelPlaceFeaturesBatchTool extends BaseTool {
 
     /** Per-call entry cap — keeps the single main-thread submission under the timeout. */
@@ -49,12 +50,21 @@ public final class LevelPlaceFeaturesBatchTool extends BaseTool {
                     .required(
                             "features",
                             Schemas.arrayOf(
-                                    "Features to place, each {feature, x, y, z}; max 4096 entries",
+                                    "Features to place, each {feature or definition, x, y, z}; max 4096"
+                                            + " entries",
                                     Schemas.object()
-                                            .required(
+                                            .optional(
                                                     "feature",
                                                     Schemas.string(
                                                             "Configured feature id, e.g. minecraft:fancy_oak"))
+                                            .optional(
+                                                    "definition",
+                                                    Schemas.object()
+                                                            .description(
+                                                                    "Inline configured feature (Minecraft"
+                                                                            + " 26.3+), instead of feature")
+                                                            .allowAdditional()
+                                                            .build())
                                             .required("x", Schemas.integer("Block X"))
                                             .required("y", Schemas.integer("Block Y"))
                                             .required("z", Schemas.integer("Block Z"))
@@ -91,7 +101,8 @@ public final class LevelPlaceFeaturesBatchTool extends BaseTool {
         }
 
         // Pre-build the command strings on the HTTP thread (no world access here).
-        record Placement(String feature, int x, int y, int z) {}
+        // feature is the /place argument: an id, or an inline definition as SNBT.
+        record Placement(String feature, boolean inline, int x, int y, int z) {}
         java.util.List<Placement> placements = new java.util.ArrayList<>(features.size());
         int index = 0;
         for (JsonNode f : features) {
@@ -106,7 +117,7 @@ public final class LevelPlaceFeaturesBatchTool extends BaseTool {
                         ErrorCodes.TOOL_INPUT_INVALID,
                         "level_place_features_batch: features[" + index + "] must be an object");
             }
-            for (String key : new String[] {"feature", "x", "y", "z"}) {
+            for (String key : new String[] {"x", "y", "z"}) {
                 if (!f.hasNonNull(key)) {
                     throw new McpException(
                             ErrorCodes.TOOL_INPUT_INVALID,
@@ -114,13 +125,16 @@ public final class LevelPlaceFeaturesBatchTool extends BaseTool {
                                     + index
                                     + "] is missing '"
                                     + key
-                                    + "'. Each entry is {feature, x, y, z} with flat integer"
+                                    + "'. Each entry is {feature or definition, x, y, z} with flat integer"
                                     + " coordinates -- not a nested position object.");
                 }
             }
+            String arg = LevelPlaceFeatureTool.featureArgument(
+                    f.get("feature"), f.get("definition"), "features[" + index + "] ");
             placements.add(
                     new Placement(
-                            f.get("feature").asText(),
+                            arg,
+                            f.hasNonNull("definition"),
                             f.get("x").asInt(),
                             f.get("y").asInt(),
                             f.get("z").asInt()));
@@ -151,7 +165,7 @@ public final class LevelPlaceFeaturesBatchTool extends BaseTool {
                             failed++;
                             if (errors.size() < 50) {
                                 ObjectNode e = context.mapper().createObjectNode();
-                                e.put("feature", p.feature());
+                                e.put("feature", p.inline() ? "(inline definition)" : p.feature());
                                 e.put("x", p.x());
                                 e.put("y", p.y());
                                 e.put("z", p.z());
