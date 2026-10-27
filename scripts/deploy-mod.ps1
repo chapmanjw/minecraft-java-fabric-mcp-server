@@ -24,8 +24,11 @@ $modsDir = Join-Path $ServerDir "mods"
 $backupDir = Join-Path $ServerDir "mods-backup"
 
 function Find-BuiltJar {
+    # Every Stonecutter target builds into versions\<mc>\build\libs, so search all of them;
+    # the "+<mc>" suffix in JarGlob picks the target.
     $candidates = @(
-        (Join-Path $RepoDir "versions\26.1.2\build\libs"),
+        Get-ChildItem (Join-Path $RepoDir "versions") -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName "build\libs" }
         (Join-Path $RepoDir "build\libs")
     ) | Where-Object { Test-Path $_ }
     foreach ($d in $candidates) {
