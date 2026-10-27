@@ -61,7 +61,7 @@ Minor rather than patch because three tools now behave differently in ways a cal
   [docs/version-compatibility.md](docs/version-compatibility.md#runtime-data-differences-what-compiling-cannot-catch),
   including the `convertable_to_mud` tag rename and `white-list=true` on newly created servers.
 - `scripts/deploy-mod.ps1` now finds the built jar under any `versions/<mc>/build/libs`.
-- The bundled Jackson moves from 2.22.2 to 2.22.4.
+- The bundled Jackson moves from 2.22.1 to 2.22.4.
 
 ## [1.1.0] - 2026-07-26
 
